@@ -1,0 +1,1 @@
+Progetto di Realta Aumentata, Stage del corso di Informatica Grafica di UniMiB 2022/2023.
