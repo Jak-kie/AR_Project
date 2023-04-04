@@ -6,3 +6,6 @@ https://github.com/dwofk/fast-depth
 L'uso del software sopracitato verra documentato e riconosciuto.
 
 In caso di problemi di ogni tipo contattatemi pure.
+
+Modelli 3D usati:
+https://skfb.ly/o8qQt

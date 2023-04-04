@@ -1,10 +1,10 @@
-# import librerie esterne
+# import moduli esterni
 import cv2
 import numpy as np
 import math
 import matplotlib.pyplot as plt
 
-#import moduli custom
+# import moduli custom
 import marker as mk
 
 
