@@ -1,5 +1,7 @@
 # https://github.com/yarolig/OBJFileLoader/blob/695d8d3cdf77128c8d9a97e18e519764cc056ce0/OBJFileLoader/objloader.py
 
+# questo file lo teniamo solo per i commenti in loadMaterial, NON SERVE AL PROGRAMMA
+
 import os
 import pygame
 from OpenGL.GL import *
