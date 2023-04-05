@@ -30,7 +30,9 @@ def main():
 
     camera_parameters = np.array([[1000, 0, 320], [0, 1000, 240], [0, 0, 1]])
 
-    # Caricamento modello, per ora carichiamolo direttamente 1 volta sola, poi andra caricato in base al marker
+    # Caricamento modello
+    # I modelli andranno caricati tutti all'avvio dell'app, essendo TROPPO lento caricarli ogni volta che troviamo un
+    # nuovo marker
     """
     pygame.init()
     viewport = (800,600)
@@ -38,7 +40,7 @@ def main():
     hy = viewport[1]/2
     pygame.display.set_mode(viewport, OPENGL | DOUBLEBUF)
     """
-    obj = OBJ("models\headcrab-obj\headcrab.obj", swapyz=True)
+    obj = OBJ("models\we-bare-bears-low-poly\escandalosos.obj", swapyz=True)
 
     # Lettura del frame dalla camera
     cameraInput = readFromCamera()
@@ -55,14 +57,16 @@ def main():
         homography, transformedCorners = applyHomography(markerReference[bestMarker], sourceImagePts, matches)
         frame = cv2.polylines(cameraInput, [np.int32(transformedCorners)], True, 255, 3, cv2.LINE_AA)
 
+        """
         plt.figure(figsize=(12, 6))
         plt.imshow(frame, cmap='gray')
         plt.title("frame 1")
         plt.show()
-
+        """
+        
         # obtain 3D projection matrix from homography matrix and camera parameters
         projection = projection_matrix(camera_parameters, homography)  
-        
+
         print(projection)
 
         # project cube or model
@@ -72,21 +76,6 @@ def main():
         plt.imshow(frame, cmap='gray')
         plt.title("final frame")
         plt.show()
-        """
-        # Draw a polygon on the second image joining the transformed corners
-        
-        # Draw the matches
-        drawParameters = dict(matchColor=(0, 255, 0), singlePointColor=None,
-                            matchesMask=matchesMask, flags=2)
-        result = cv2.drawMatches(markerReference[bestMarker].getImage(), markerReference[bestMarker].getImagePts()
-            , cameraInput, sourceImagePts, matches, None, **drawParameters)
-
-        # Show image
-        plt.figure(figsize=(12, 6))
-        plt.imshow(result, cmap='gray')
-        plt.show()
-        """
-
     else:
         print ("Nessun marker trovato")
 
@@ -100,11 +89,7 @@ def readFromCamera():
     """
 
     imagePath = "pictures\sourceImage_08.jpg"
-    # plt.imshow(cv2.imread(imagePath, 0), cmap='gray')
-    # plt.title("cameraInput")
-    # plt.show()
     return cv2.imread(imagePath, 0)
-    # return plt.imread(imagePath)
 
 
 def descriptorReference():
@@ -115,7 +100,6 @@ def descriptorReference():
         list -- array di marker delle reference
     """
     
-    # TODO: da fare per ogni marker dentro /pictures/markers   
     markerReference = []
     with os.scandir("pictures\marker") as it:
         for entry in it:
@@ -127,7 +111,8 @@ def descriptorReference():
                 tmpMarker.setImage(cv2.imread(entry.path, 0))
                 tmpMarker.findDescriptors()
                 markerReference.append(tmpMarker)
-    """plt.imshow(markerReference[0].getImage(), cmap='gray')
+    """
+    plt.imshow(markerReference[0].getImage(), cmap='gray')
     plt.show()
     print(markerReference[0].getImage())
     print(markerReference[0].getImagePts())
@@ -136,8 +121,8 @@ def descriptorReference():
     
     plt.imshow(markerReference[0].getImageFeatures(), cmap='gray')
     plt.title('Reference Image Features')
-    plt.show()"""
-
+    plt.show()
+    """
     return markerReference
 
 
