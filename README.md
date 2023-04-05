@@ -3,6 +3,9 @@ Progetto di Realta Aumentata, Stage del corso di Informatica Grafica di UniMiB 2
 Il progetto fa uso dell'algoritmo FastDepth per il riconoscimento della profondita di una immagine 2D.
 https://github.com/dwofk/fast-depth
 
+Il caricamento del modello e la visualizzazione è stata in gran parte realizzata tramite la seguente repo.
+https://github.com/mafda/augmented_reality_101
+
 L'uso del software sopracitato verra documentato e riconosciuto.
 
 In caso di problemi di ogni tipo contattatemi pure.
