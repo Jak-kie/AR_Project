@@ -99,7 +99,7 @@ def readFromCamera():
         ndarray -- immagine presa dalla camera
     """
 
-    imagePath = "pictures\sourceImage_04.jpg"
+    imagePath = "pictures\sourceImage_08.jpg"
     # plt.imshow(cv2.imread(imagePath, 0), cmap='gray')
     # plt.title("cameraInput")
     # plt.show()
@@ -123,6 +123,7 @@ def descriptorReference():
                 # print(entry.name)
                 tmpMarker = Marker()
                 # In the case of color images, the decoded images will have the channels stored in B G R order.
+                tmpMarker.setPath(entry.path)
                 tmpMarker.setImage(cv2.imread(entry.path, 0))
                 tmpMarker.findDescriptors()
                 markerReference.append(tmpMarker)
@@ -158,6 +159,7 @@ def featureMatching(markerReference, sourceImage):
     for index, entry in enumerate(markerReference):
         matches, sourceImagePts = entry.featureMatching(sourceImage)
         # sourceImagePts, sourceImageDsc, matches = entry.featureMatching(sourceImage)
+        print ("Path del marker:" , entry.getPath())
         print ("Numero di matches:" , len(matches))
         if len(matches) > MIN_MATCHES and len(matches) > currentBestAmount: 
             currentBestAmount = len(matches)

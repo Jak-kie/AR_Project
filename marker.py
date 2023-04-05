@@ -8,12 +8,15 @@ bfMatch = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
 
 class Marker(object):
     def __init__(self):
-        self._image, self._imagePts, self._imageDsc = None, None, None
+        self._image, self._imagePts, self._imageDsc, self._path = None, None, None, None
         global orb
         global bfMatch
 
     def setImage(self, image):
         self._image = image
+
+    def setPath(self, path):
+        self._path = path
 
     def findDescriptors(self):
         # TODO: lancia una eccezione se self._image non è stata inizializzata != None
@@ -31,6 +34,9 @@ class Marker(object):
     def getImage(self):
         return self._image
     
+    def getPath(self):
+        return self._path
+
     def getImagePts(self):
         return self._imagePts
     
