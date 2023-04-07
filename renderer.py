@@ -31,22 +31,90 @@ def projection_matrix(camera_parameters, homography):
     return np.dot(camera_parameters, projection)
 
 
+def hex_to_rgb(hex_color):
+    """ Helper function to convert hex strings to RGB
+    """
+    hex_color = hex_color.lstrip('#')
+    h_len = len(hex_color)
+    return tuple(int(hex_color[i:i + h_len // 3], 16) for i in range(0, h_len, h_len // 3))
+
+
 # project cube or model
 def render(img, obj, projection, model, color=False):
     vertices = obj.vertices
-    scale_matrix = np.eye(3) * 6
+    # scalingMatrix si occupa dello scaling del modello
+    scalingMatrix = np.eye(3) * 6
     h, w = model.shape
-
-    for face in obj.faces:
+    # print ("h, w: " , h, w)
+    orderedFaces = sorted(obj.faces, key=lambda face: face[0][1], reverse=True)
+    # for face in orderedFaces:   
+        # print (face)
+    
+    # for face in obj.faces:
+    for face in orderedFaces:
+        # in face ci sta una istanza del tipo (face, norms, texcoords, material)
+        # e.g. [1718, 1710, 1720]
         face_vertices = face[0]
+        """
+        e.g. [[-4.0000000e-06 -6.8255070e+00  3.2242416e+01]
+            [ 2.9868200e-01 -6.8255070e+00  3.2145370e+01]
+            [ 1.5702500e-01 -6.9483030e+00  3.1950399e+01]]
+        """
         points = np.array([vertices[vertex - 1] for vertex in face_vertices])
-        points = np.dot(points, scale_matrix)
+        """
+        e.g. [[-2.40000000e-05 -4.09530420e+01  1.93454496e+02]
+            [ 1.79209200e+00 -4.09530420e+01  1.92872220e+02]
+            [ 9.42150000e-01 -4.16898180e+01  1.91702394e+02]]
+        """
+        points = np.dot(points, scalingMatrix)
+        print ("points 1: " , points[0])
         # render model in the middle of the reference surface. To do so,
         # model points must be displaced
+        """
+        e.g. [[174.999976 144.546958 193.454496]
+            [176.792092 144.546958 192.87222 ]
+            [175.94215  143.810182 191.702394]]
+        """
         points = np.array([[p[0] + w / 2, p[1] + h / 2, p[2]] for p in points])
+        print ("points 2: " , points[0])
+        """
+        e.g. points.reshape(-1,1,3): [[[174.999976 144.546958 193.454496]]
+
+            [[176.792092 144.546958 192.87222 ]]
+
+            [[175.94215  143.810182 191.702394]]]
+        """
+        """
+        e.g. dts = [[[296.03188792   9.05657252]]
+
+            [[298.87256546   9.87051668]]
+
+            [[297.73469973  11.22027995]]]
+        """
         dst = cv2.perspectiveTransform(points.reshape(-1, 1, 3), projection)
+        """
+        e.g. imgpts = [[[296   9]]
+
+            [[298   9]]
+
+            [[297  11]]]
+        """
         imgpts = np.int32(dst)
 
-        cv2.fillConvexPoly(img, imgpts, (80, 27, 211))
+        if color is False: 
+            cv2.fillConvexPoly(img, imgpts, (137, 27, 211))
+        else: 
+            #print ("face[-1]: ", face[-1])
+            #print(obj.mtl)
+            #print(obj.mtl[face[-1]])
+            tmpObj = obj.mtl[face[-1]]
+            #print(tmpObj["Kd"])
+            # color = hex_to_rgb(tmpObj["Kd"])
+            color = tmpObj["Kd"]
+            color = [x * 255 for x in color]
+            # print ("color:" , color)
+            # color = map(lambda x: x * 255, color)
+            # color = color[::-1]  # reverse 
+            cv2.fillConvexPoly(img, imgpts, color)
 
     return img

@@ -48,7 +48,7 @@ def main():
     # Feature matching
     bestMarker, sourceImagePts, matches = featureMatching(markerReference, cameraInput)
     if bestMarker != -1:
-        print("Marker trovato, posizione nell'array" , bestMarker)
+        print("Trovato il marker" , markerReference[bestMarker].getPath() , ". Posizione nell'array =" , bestMarker)
         """
         plt.imshow(markerReference[bestMarker].getImage(), cmap='gray')
         plt.title("Marker")
@@ -56,7 +56,6 @@ def main():
         """
         homography, transformedCorners = applyHomography(markerReference[bestMarker], sourceImagePts, matches)
         frame = cv2.polylines(cameraInput, [np.int32(transformedCorners)], True, 255, 3, cv2.LINE_AA)
-
         """
         plt.figure(figsize=(12, 6))
         plt.imshow(frame, cmap='gray')
@@ -66,16 +65,22 @@ def main():
         
         # obtain 3D projection matrix from homography matrix and camera parameters
         projection = projection_matrix(camera_parameters, homography)  
-
         print(projection)
 
         # project cube or model
-        frame = render(frame, obj, projection, markerReference[bestMarker].getImage(), False)
+        frame = render(frame, obj, projection, markerReference[bestMarker].getImage(), True)
 
+        """
         plt.figure(figsize=(12, 6))
         plt.imshow(frame, cmap='gray')
         plt.title("final frame")
         plt.show()
+        """
+        # show result
+        cv2.imshow('frame', frame)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+
     else:
         print ("Nessun marker trovato")
 
@@ -88,7 +93,23 @@ def readFromCamera():
         ndarray -- immagine presa dalla camera
     """
 
-    imagePath = "pictures\sourceImage_08.jpg"
+    """
+    Risultati in base alle immagini
+    img     matches_01      matches_02
+    1	        126	            145
+    2	        123	            159
+    3	        128	            162
+    4	        115	            146
+
+    5	        91	            158
+    6	        78	            162
+    7	        92	            177
+    8	        79	            172
+
+    noMarker	104	            112
+    """
+
+    imagePath = "pictures\sourceImage_02_01.jpg"
     return cv2.imread(imagePath, 0)
 
 
@@ -136,11 +157,12 @@ def featureMatching(markerReference, sourceImage):
     """
 
     # minimo ammontare di matchesAmount perche venga considerato valido
-    MIN_MATCHES = 110
+    MIN_MATCHES = 135
     # matchesAmount migliore trovato finora
     currentBestAmount = 0
     # indice in markerReference
     currentBestMarker = -1
+    currentBestMatches, currentBestSourceImagePts = None, None
     for index, entry in enumerate(markerReference):
         matches, sourceImagePts = entry.featureMatching(sourceImage)
         # sourceImagePts, sourceImageDsc, matches = entry.featureMatching(sourceImage)
@@ -149,6 +171,8 @@ def featureMatching(markerReference, sourceImage):
         if len(matches) > MIN_MATCHES and len(matches) > currentBestAmount: 
             currentBestAmount = len(matches)
             currentBestMarker = index
+            currentBestMatches = matches
+            currentBestSourceImagePts = sourceImagePts
         """
             # OUTPUT DI PROVA
             # draw first 15 matches.
@@ -163,7 +187,7 @@ def featureMatching(markerReference, sourceImage):
             print("Not enough matches have been found - %d/%d" % (len(matches), MIN_MATCHES))
             matchesMask = None
         """
-    return currentBestMarker, sourceImagePts, matches
+    return currentBestMarker, currentBestSourceImagePts, currentBestMatches
 
 
 def applyHomography(marker, sourceImagePts, matches):
