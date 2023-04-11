@@ -1,22 +1,12 @@
 # import moduli esterni
-import matplotlib.pyplot as plt
-import os
 import cv2
 import numpy as np
 
 # import moduli custom
-from marker import Marker
 from renderer import projection_matrix, render
+from initialize import *
 
 # import moduli PIP
-"""
-import pygame
-from pygame.locals import *
-from pygame.constants import *
-from objloader import *
-from OpenGL.GL import *
-from OpenGL.GLU import *
-"""
 from objloader_simple import *
 
 
@@ -25,22 +15,8 @@ def main():
     Chiama tutti i sottopassaggi della pipeline.
     """
 
-    # Feature detection/description dei marker reference
-    markerReference = descriptorReference()
-
-    camera_parameters = np.array([[1000, 0, 320], [0, 1000, 240], [0, 0, 1]])
-
-    # Caricamento modello
-    # I modelli andranno caricati tutti all'avvio dell'app, essendo TROPPO lento caricarli ogni volta che troviamo un
-    # nuovo marker
-    """
-    pygame.init()
-    viewport = (800,600)
-    hx = viewport[0]/2
-    hy = viewport[1]/2
-    pygame.display.set_mode(viewport, OPENGL | DOUBLEBUF)
-    """
-    obj = OBJ("models\we-bare-bears-low-poly\escandalosos.obj", swapyz=True)
+    # Inizializzazione
+    markerReference, cameraParameters, objDict = initialize()
 
     # Lettura del frame dalla camera
     cameraInput = readFromCamera()
@@ -64,25 +40,20 @@ def main():
         """
         
         # obtain 3D projection matrix from homography matrix and camera parameters
-        projection = projection_matrix(camera_parameters, homography)  
-        print(projection)
+        projection = projection_matrix(cameraParameters, homography)  
 
         # project cube or model
+        # passato il modello associato al marker
+        obj = objDict[markerReference[bestMarker].getPath()]
         frame = render(frame, obj, projection, markerReference[bestMarker].getImage(), True)
 
-        """
-        plt.figure(figsize=(12, 6))
-        plt.imshow(frame, cmap='gray')
-        plt.title("final frame")
-        plt.show()
-        """
         # show result
         cv2.imshow('frame', frame)
         cv2.waitKey(0)
         cv2.destroyAllWindows()
 
     else:
-        print ("Nessun marker trovato")
+        print ("Nessun marker trovato")     # TODO: FUCKING WISH IT DID WORK HOLY MOLY
 
 
 def readFromCamera():
@@ -109,42 +80,8 @@ def readFromCamera():
     noMarker	104	            112
     """
 
-    imagePath = "pictures\sourceImage_02_03.jpg"
+    imagePath = "pictures\sourceImage_03_04.jpg"
     return cv2.imread(imagePath, 0)
-
-
-def descriptorReference():
-    """Genera i descriptor delle reference image
-    Va effettuato solo all'avvio
-
-    Returns:
-        list -- array di marker delle reference
-    """
-    
-    markerReference = []
-    with os.scandir("pictures\marker") as it:
-        for entry in it:
-            if not entry.name.startswith('.') and entry.is_file():
-                # print(entry.name)
-                tmpMarker = Marker()
-                # In the case of color images, the decoded images will have the channels stored in B G R order.
-                tmpMarker.setPath(entry.path)
-                tmpMarker.setImage(cv2.imread(entry.path, 0))
-                tmpMarker.findDescriptors()
-                markerReference.append(tmpMarker)
-    """
-    plt.imshow(markerReference[0].getImage(), cmap='gray')
-    plt.show()
-    print(markerReference[0].getImage())
-    print(markerReference[0].getImagePts())
-    print(markerReference[0].getImageDsc())
-    print(np.array(markerReference[0].getImage()).shape)
-    
-    plt.imshow(markerReference[0].getImageFeatures(), cmap='gray')
-    plt.title('Reference Image Features')
-    plt.show()
-    """
-    return markerReference
 
 
 def featureMatching(markerReference, sourceImage):
