@@ -66,21 +66,32 @@ def readFromCamera():
 
     """
     Risultati in base alle immagini
-    img     matches_01      matches_02
-    1	        126	            145
-    2	        123	            159
-    3	        128	            162
-    4	        115	            146
+            matches_01      matches_02      matches_03
+    img 1
+    1	        126	            145	            150
+    2	        123	            159	            159
+    3	        128	            162	            157
+    4	        115	            146	            149
 
-    5	        91	            158
-    6	        78	            162
-    7	        92	            177
-    8	        79	            172
+    img 2
+    1	        91	            158	            97
+    2	        78	            162	            125
+    3	        92	            177	            113
+    4	        79	            172	            101
 
-    noMarker	104	            112
+    img 3
+    1	        119	            150	            206
+    2	        142	            150	            210
+    3	        118	            151	            168
+    4	        134	            138	            172    
+    
+    noMarker	104	            112	            112
+
+    CONCLUSIONE: matches_01 troppo basso --> ARmarker_01 e simili non sono accettabili, troppi pattern ripetuti
+        Gli altri 2 vanno bene. MIN_MATCHES deve stare tra 112-158 AND 112-172
     """
 
-    imagePath = "pictures\sourceImage_03_04.jpg"
+    imagePath = "pictures\sourceImage_02_01.jpg"
     return cv2.imread(imagePath, 0)
 
 
@@ -94,8 +105,9 @@ def featureMatching(markerReference, sourceImage):
     """
 
     # minimo ammontare di matchesAmount perche venga considerato valido
-    MIN_MATCHES = 135
-    # matchesAmount migliore trovato finora
+    # numeri provati: 135, 120
+    MIN_MATCHES = 125
+    # numero di matches piu alti trovati
     currentBestAmount = 0
     # indice in markerReference
     currentBestMarker = -1

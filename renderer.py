@@ -38,19 +38,17 @@ def to_vertices(vertices, index):
 # project cube or model
 def render(img, obj, projection, model, color=False):
     defaultColor = (137, 27, 211)
+    # maggiore il valore, maggiore lo scaling del modello
+    scalingScale = 6
     vertices = obj.vertices
-    # scalingMatrix si occupa dello scaling del modello
-    scalingMatrix = np.eye(3) * 6
+    # scalingMatrix si occupa dello scaling del modello.
+    scalingMatrix = np.eye(3) * scalingScale
     h, w = model.shape
-    # print ("h, w: " , h, w)
-    # orderedFaces = sorted(obj.faces, key=lambda face: face[0][1], reverse=True)
-    # for face in orderedFaces:   
-        # print (face)
 
+    # questo va funzionare il rendering dei vertici correttamente, somehow.
     cpos = np.dot(np.linalg.inv(projection[:, :3]), projection[:, 3])
     obj.faces.sort(key=lambda x: np.sqrt(np.sum((cpos - np.mean(np.array(to_vertices(vertices, x[0]))))**2)))
 
-    # for face in obj.faces:
     for face in obj.faces:
         # in face ci sta una istanza del tipo (face, norms, texcoords, material)
         # e.g. [1718, 1710, 1720]
