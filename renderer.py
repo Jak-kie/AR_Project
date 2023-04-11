@@ -39,19 +39,27 @@ def hex_to_rgb(hex_color):
     return tuple(int(hex_color[i:i + h_len // 3], 16) for i in range(0, h_len, h_len // 3))
 
 
+def to_vertices(vertices, index):
+    return np.array([vertices[x - 1] for x in index])
+
+
 # project cube or model
 def render(img, obj, projection, model, color=False):
+    defaultColor = (137, 27, 211)
     vertices = obj.vertices
     # scalingMatrix si occupa dello scaling del modello
     scalingMatrix = np.eye(3) * 6
     h, w = model.shape
     # print ("h, w: " , h, w)
-    orderedFaces = sorted(obj.faces, key=lambda face: face[0][1], reverse=True)
+    # orderedFaces = sorted(obj.faces, key=lambda face: face[0][1], reverse=True)
     # for face in orderedFaces:   
         # print (face)
-    
+
+    cpos = np.dot(np.linalg.inv(projection[:, :3]), projection[:, 3])
+    obj.faces.sort(key=lambda x: np.sqrt(np.sum((cpos - np.mean(np.array(to_vertices(vertices, x[0]))))**2)))
+
     # for face in obj.faces:
-    for face in orderedFaces:
+    for face in obj.faces:
         # in face ci sta una istanza del tipo (face, norms, texcoords, material)
         # e.g. [1718, 1710, 1720]
         face_vertices = face[0]
@@ -67,7 +75,7 @@ def render(img, obj, projection, model, color=False):
             [ 9.42150000e-01 -4.16898180e+01  1.91702394e+02]]
         """
         points = np.dot(points, scalingMatrix)
-        print ("points 1: " , points[0])
+        # print ("points 1: " , points[0])
         # render model in the middle of the reference surface. To do so,
         # model points must be displaced
         """
@@ -76,7 +84,7 @@ def render(img, obj, projection, model, color=False):
             [175.94215  143.810182 191.702394]]
         """
         points = np.array([[p[0] + w / 2, p[1] + h / 2, p[2]] for p in points])
-        print ("points 2: " , points[0])
+        # print ("points 2: " , points[0])
         """
         e.g. points.reshape(-1,1,3): [[[174.999976 144.546958 193.454496]]
 
@@ -102,7 +110,7 @@ def render(img, obj, projection, model, color=False):
         imgpts = np.int32(dst)
 
         if color is False: 
-            cv2.fillConvexPoly(img, imgpts, (137, 27, 211))
+            cv2.fillConvexPoly(img, imgpts, defaultColor)
         else: 
             #print ("face[-1]: ", face[-1])
             #print(obj.mtl)
@@ -114,7 +122,8 @@ def render(img, obj, projection, model, color=False):
             color = [x * 255 for x in color]
             # print ("color:" , color)
             # color = map(lambda x: x * 255, color)
-            # color = color[::-1]  # reverse 
+            # color = color[::-1]  # reverse
+            color = color[::-1]
             cv2.fillConvexPoly(img, imgpts, color)
 
     return img
