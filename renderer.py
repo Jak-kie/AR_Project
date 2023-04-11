@@ -31,14 +31,6 @@ def projection_matrix(camera_parameters, homography):
     return np.dot(camera_parameters, projection)
 
 
-def hex_to_rgb(hex_color):
-    """ Helper function to convert hex strings to RGB
-    """
-    hex_color = hex_color.lstrip('#')
-    h_len = len(hex_color)
-    return tuple(int(hex_color[i:i + h_len // 3], 16) for i in range(0, h_len, h_len // 3))
-
-
 def to_vertices(vertices, index):
     return np.array([vertices[x - 1] for x in index])
 
@@ -112,17 +104,8 @@ def render(img, obj, projection, model, color=False):
         if color is False: 
             cv2.fillConvexPoly(img, imgpts, defaultColor)
         else: 
-            #print ("face[-1]: ", face[-1])
-            #print(obj.mtl)
-            #print(obj.mtl[face[-1]])
             tmpObj = obj.mtl[face[-1]]
-            #print(tmpObj["Kd"])
-            # color = hex_to_rgb(tmpObj["Kd"])
-            color = tmpObj["Kd"]
-            color = [x * 255 for x in color]
-            # print ("color:" , color)
-            # color = map(lambda x: x * 255, color)
-            # color = color[::-1]  # reverse
+            color = [x * 255 for x in tmpObj["Kd"]]
             color = color[::-1]
             cv2.fillConvexPoly(img, imgpts, color)
 

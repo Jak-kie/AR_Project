@@ -109,7 +109,7 @@ def readFromCamera():
     noMarker	104	            112
     """
 
-    imagePath = "pictures\sourceImage_02_01.jpg"
+    imagePath = "pictures\sourceImage_02_03.jpg"
     return cv2.imread(imagePath, 0)
 
 
