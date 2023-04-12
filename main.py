@@ -15,48 +15,67 @@ def main():
     Chiama tutti i sottopassaggi della pipeline.
     """
 
+    print ("Inizializzazione in corso...")
     # Inizializzazione
-    markerReference, cameraParameters, objDict = initialize()
+    markerReference, cameraParameters, objDict, cameraVideo = initialize()
 
-    # Lettura del frame dalla camera
-    cameraInput = readFromCamera()
-
-    # Feature matching
-    bestMarker, sourceImagePts, matches = featureMatching(markerReference, cameraInput)
-    if bestMarker != -1:
-        print("Trovato il marker" , markerReference[bestMarker].getPath() , ". Posizione nell'array =" , bestMarker)
-        """
-        plt.imshow(markerReference[bestMarker].getImage(), cmap='gray')
-        plt.title("Marker")
-        plt.show()
-        """
-        homography, transformedCorners = applyHomography(markerReference[bestMarker], sourceImagePts, matches)
-        frame = cv2.polylines(cameraInput, [np.int32(transformedCorners)], True, 255, 3, cv2.LINE_AA)
-        """
-        plt.figure(figsize=(12, 6))
-        plt.imshow(frame, cmap='gray')
-        plt.title("frame 1")
-        plt.show()
-        """
-        
-        # obtain 3D projection matrix from homography matrix and camera parameters
-        projection = projection_matrix(cameraParameters, homography)  
-
-        # project cube or model
-        # passato il modello associato al marker
-        obj = objDict[markerReference[bestMarker].getPath()]
-        frame = render(frame, obj, projection, markerReference[bestMarker].getImage(), True)
-
-        # show result
-        cv2.imshow('frame', frame)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
-
+    if cameraVideo.isOpened(): # try to get the first frame
+        isCameraActive, _ = cameraVideo.read()
     else:
-        print ("Nessun marker trovato")     # TODO: FUCKING WISH IT DID WORK HOLY MOLY
+        isCameraActive = False
+
+    print ("Inizializzazione terminata!")
+
+    while isCameraActive:
+        # Lettura del frame dalla camera
+        isCameraActive, cameraInput = readFromCamera(cameraVideo)
+        grayInput = cv2.cvtColor(cameraInput, cv2.COLOR_BGR2GRAY)
+
+        # Feature matching
+        bestMarker, sourceImagePts, matches = featureMatching(markerReference, grayInput)
+        if bestMarker != -1:
+            # print("Trovato il marker" , markerReference[bestMarker].getPath() , ". Posizione nell'array =" , bestMarker)
+            """
+            plt.imshow(markerReference[bestMarker].getImage(), cmap='gray')
+            plt.title("Marker")
+            plt.show()
+            """
+            homography, transformedCorners = applyHomography(markerReference[bestMarker], sourceImagePts, matches)
+            frame = cameraInput
+            # frame = cv2.polylines(cameraInput, [np.int32(transformedCorners)], True, 255, 3, cv2.LINE_AA)
+            """
+            plt.figure(figsize=(12, 6))
+            plt.imshow(frame, cmap='gray')
+            plt.title("frame 1")
+            plt.show()
+            """
+            
+            # obtain 3D projection matrix from homography matrix and camera parameters
+            projection = projection_matrix(cameraParameters, homography)  
+
+            # project cube or model
+            # passato il modello associato al marker
+            obj = objDict[markerReference[bestMarker].getPath()]
+            frame = render(frame, obj, projection, markerReference[bestMarker].getImage(), True)
+
+            # show result
+            cv2.imshow('preview', frame)
+            # cv2.waitKey(0)
+            # cv2.destroyAllWindows()
+
+        else:
+            # print ("Nessun marker trovato")
+            cv2.imshow('preview', cameraInput)
+            
+        key = cv2.waitKey(20)
+        if key == 27: # exit on ESC
+            break
+    
+    cameraVideo.release()
+    cv2.destroyWindow("preview")
 
 
-def readFromCamera():
+def readFromCamera(cameraVideo):
     """Riceve la immagine dalla camera del dispositivo.
     Per ora la immagine la otteniamo tramite lettura da file.
 
@@ -91,8 +110,17 @@ def readFromCamera():
         Gli altri 2 vanno bene. MIN_MATCHES deve stare tra 112-158 AND 112-172
     """
 
-    imagePath = "pictures\sourceImage_02_01.jpg"
-    return cv2.imread(imagePath, 0)
+    # carico dalla cartella
+    # imagePath = "pictures\sourceImage_02_01.jpg"
+    # print (cv2.imread(imagePath, 0).shape)
+    # print (cv2.imread(imagePath, 0))
+    # return cv2.imread(imagePath, 0)
+
+    isCameraActive, frame = cameraVideo.read()
+    # print (frame.shape)
+    # print (frame)
+    return isCameraActive, frame
+
 
 
 def featureMatching(markerReference, sourceImage):
@@ -115,8 +143,8 @@ def featureMatching(markerReference, sourceImage):
     for index, entry in enumerate(markerReference):
         matches, sourceImagePts = entry.featureMatching(sourceImage)
         # sourceImagePts, sourceImageDsc, matches = entry.featureMatching(sourceImage)
-        print ("Path del marker:" , entry.getPath())
-        print ("Numero di matches:" , len(matches))
+        # print ("Path del marker:" , entry.getPath())
+        # print ("Numero di matches:" , len(matches))
         if len(matches) > MIN_MATCHES and len(matches) > currentBestAmount: 
             currentBestAmount = len(matches)
             currentBestMarker = index

@@ -50,4 +50,7 @@ def initialize():
     objDict.update({"pictures\marker\ARmarker_02.jpg": OBJ("models\we-bare-bears-low-poly\escandalosos.obj", swapyz=True)})
     objDict.update({"pictures\marker\ARmarker_03.jpg": OBJ("models\headcrab-obj\headcrab.obj", swapyz=True)})
 
-    return markerReference, camera_parameters, objDict
+    # Inizializzo la camera
+    cameraVideo = cv2.VideoCapture(0)
+
+    return markerReference, camera_parameters, objDict, cameraVideo
