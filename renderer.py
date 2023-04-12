@@ -39,7 +39,7 @@ def to_vertices(vertices, index):
 def render(img, obj, projection, model, color=False):
     defaultColor = (137, 27, 211)
     # maggiore il valore, maggiore lo scaling del modello
-    scalingScale = 6
+    scalingScale = 250
     vertices = obj.vertices
     # scalingMatrix si occupa dello scaling del modello.
     scalingMatrix = np.eye(3) * scalingScale

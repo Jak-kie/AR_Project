@@ -9,6 +9,9 @@ from initialize import *
 # import moduli PIP
 from objloader_simple import *
 
+# per testare quando tempo ci mette ad una esecuzione
+from time import process_time
+
 
 def main():
     """Funzione main.
@@ -27,12 +30,25 @@ def main():
     print ("Inizializzazione terminata!")
 
     while isCameraActive:
+        
+        print ("-------------------------------------------------------------------------")
+
+        startTimeFinal = process_time()
+
         # Lettura del frame dalla camera
         isCameraActive, cameraInput = readFromCamera(cameraVideo)
         grayInput = cv2.cvtColor(cameraInput, cv2.COLOR_BGR2GRAY)
 
+        # tempo bassissimo, 0.0 seconds
+        endTimeGetGray = process_time()
+        print("Tempo per leggere il frame e convertirlo in grayscale --- %s seconds ---" % (endTimeGetGray - startTimeFinal))        
+
         # Feature matching
+        startTimeFM = process_time()
         bestMarker, sourceImagePts, matches = featureMatching(markerReference, grayInput)
+        endTimeFM = process_time()
+        print("Tempo per featureMatching --- %s seconds ---" % (endTimeFM - startTimeFM))        
+
         if bestMarker != -1:
             # print("Trovato il marker" , markerReference[bestMarker].getPath() , ". Posizione nell'array =" , bestMarker)
             """
@@ -40,8 +56,12 @@ def main():
             plt.title("Marker")
             plt.show()
             """
-            homography, transformedCorners = applyHomography(markerReference[bestMarker], sourceImagePts, matches)
+            # homography, transformedCorners = applyHomography(markerReference[bestMarker], sourceImagePts, matches)
+            startTimeHomography = process_time()
+            homography = applyHomography(markerReference[bestMarker], sourceImagePts, matches)    
             frame = cameraInput
+            endTimeHomography = process_time()
+            print("Tempo per applyHomography --- %s seconds ---" % (endTimeHomography - startTimeHomography))
             # frame = cv2.polylines(cameraInput, [np.int32(transformedCorners)], True, 255, 3, cv2.LINE_AA)
             """
             plt.figure(figsize=(12, 6))
@@ -51,22 +71,37 @@ def main():
             """
             
             # obtain 3D projection matrix from homography matrix and camera parameters
-            projection = projection_matrix(cameraParameters, homography)  
+            if homography is not None:
+                try:
+                    startTimeProjection = process_time()
+                    projection = projection_matrix(cameraParameters, homography)  
+                    endTimeProjection = process_time()
+                    print("Tempo per projection_matrix --- %s seconds ---" % (endTimeProjection - startTimeProjection))
 
-            # project cube or model
-            # passato il modello associato al marker
-            obj = objDict[markerReference[bestMarker].getPath()]
-            frame = render(frame, obj, projection, markerReference[bestMarker].getImage(), True)
+                    # project cube or model
+                    # passato il modello associato al marker
+                    startTimeRender = process_time()
+                    obj = objDict[markerReference[bestMarker].getPath()]
+                    frame = render(frame, obj, projection, markerReference[bestMarker].getImage(), True)
+                    endTimeRender = process_time()
+                    print("Tempo per render --- %s seconds ---" % (endTimeRender - startTimeRender))
 
-            # show result
-            cv2.imshow('preview', frame)
-            # cv2.waitKey(0)
-            # cv2.destroyAllWindows()
+                    # show result
+                    cv2.imshow('preview', frame)
+                    # cv2.waitKey(0)
+                    # cv2.destroyAllWindows()
 
+                    endTimeFinal = process_time()
+                    print("Trovato il marker --- %s seconds ---" % (endTimeFinal - startTimeFinal))
+                except:
+                    cv2.imshow('preview', cameraInput)
         else:
             # print ("Nessun marker trovato")
             cv2.imshow('preview', cameraInput)
             
+            endTimeFinal = process_time()
+            print("Marker non trovato --- %s seconds ---" % (endTimeFinal - startTimeFinal))
+
         key = cv2.waitKey(20)
         if key == 27: # exit on ESC
             break
@@ -133,8 +168,8 @@ def featureMatching(markerReference, sourceImage):
     """
 
     # minimo ammontare di matchesAmount perche venga considerato valido
-    # numeri provati: 135, 120
-    MIN_MATCHES = 125
+    # numeri provati: 135, 120, 125
+    MIN_MATCHES = 140
     # numero di matches piu alti trovati
     currentBestAmount = 0
     # indice in markerReference
@@ -177,12 +212,12 @@ def applyHomography(marker, sourceImagePts, matches):
     # matchesMask = mask.ravel().tolist()
 
     # Apply the perspective transformation to the source image corners
-    h, w = marker.getImage().shape
-    corners = np.float32([[0, 0], [0, h - 1], [w - 1, h - 1], [w - 1, 0]]).reshape(-1, 1, 2)
-    transformedCorners = cv2.perspectiveTransform(corners, homography)
+    # h, w = marker.getImage().shape
+    # corners = np.float32([[0, 0], [0, h - 1], [w - 1, h - 1], [w - 1, 0]]).reshape(-1, 1, 2)
+    # transformedCorners = cv2.perspectiveTransform(corners, homography)
 
-    return homography, transformedCorners
-
+    # return homography, transformedCorners
+    return homography
 
 
 if __name__ == '__main__':
