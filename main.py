@@ -82,7 +82,7 @@ def main():
                     # passato il modello associato al marker
                     startTimeRender = process_time()
                     obj = objDict[markerReference[bestMarker].getPath()]
-                    frame = render(frame, obj, projection, markerReference[bestMarker].getImage(), True)
+                    frame = render(frame, obj[0], projection, markerReference[bestMarker].getImage(), obj[1], True)
                     endTimeRender = process_time()
                     print("Tempo per render --- %s seconds ---" % (endTimeRender - startTimeRender))
 
@@ -208,7 +208,8 @@ def applyHomography(marker, sourceImagePts, matches):
     destinationPoints = np.float32([sourceImagePts[m.trainIdx].pt for m in matches]).reshape(-1, 1, 2)
 
     # Obtain the homography matrix
-    homography, _ = cv2.findHomography(sourcePoints, destinationPoints, cv2.RANSAC, 5.0)
+    # homography, _ = cv2.findHomography(sourcePoints, destinationPoints, cv2.RANSAC, 5.0)
+    homography, _ = cv2.findHomography(sourcePoints, destinationPoints, cv2.RANSAC, 10.0)
     # matchesMask = mask.ravel().tolist()
 
     # Apply the perspective transformation to the source image corners
