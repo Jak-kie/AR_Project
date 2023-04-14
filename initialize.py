@@ -41,13 +41,17 @@ def initialize():
     markerReference = loadReferenceMarker()
 
     # TODO: capire il perche di sti valori per la camera
-    camera_parameters = np.array([[1000, 0, 320], [0, 1000, 240], [0, 0, 1]])
+    # camera_parameters = np.array([[1000, 0, 320], [0, 1000, 240], [0, 0, 1]])
+    camera_parameters = np.array([[800, 0, 320], [0, 800, 240], [0, 0, 1]])
 
-    # Dictionary dei modelli 3D: key="NOME_FILE.jpg"  value="obj caricato"
+    # Dictionary dei modelli 3D: key="NOME_FILE.jpg"  value=list["obj caricato", scalingScale dell'obj]
     # e.g. key = ARmarker_01    value=OBJ("...", swapyz=True)
     # TODO: pensare ad un modo per farli associare dall'utente, per ora hardcodiamoli cosi
     objDict = {}
-    objDict.update({"pictures\marker\ARmarker_02.jpg": OBJ("models\we-bare-bears-low-poly\escandalosos.obj", swapyz=True)})
-    objDict.update({"pictures\marker\ARmarker_03.jpg": OBJ("models\headcrab-obj\headcrab.obj", swapyz=True)})
+    objDict.update({"pictures\marker\ARmarker_03.jpg": [OBJ("models\low-poly-fox\low-poly-fox.obj", swapyz=True), 100]})    
+    objDict.update({"pictures\marker\ARmarker_04.jpg": [OBJ("models\sign-post\sign-post.obj", swapyz=True), 1000]})
 
-    return markerReference, camera_parameters, objDict
+    # Inizializzo la camera
+    cameraVideo = cv2.VideoCapture(0)
+
+    return markerReference, camera_parameters, objDict, cameraVideo

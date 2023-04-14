@@ -16,6 +16,8 @@ models\headcrab-obj: https://skfb.ly/o8qQt
 
 models\star-wars-vader-tie-fighter-obj: https://clara.io/view/30705937-432c-4326-8ec7-4504792e7ec5
 
-models\uttermost-chair-obj: https://clara.io/view/d734760c-80c2-4fe6-ac9d-bacaef89e82e
-
 models\we-bare-bears-low-poly: https://skfb.ly/XNwC
+
+models\sign-post: https://skfb.ly/6ZBDs
+
+models\low-poly-fox: https://skfb.ly/KVOq

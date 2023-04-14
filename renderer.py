@@ -36,10 +36,9 @@ def to_vertices(vertices, index):
 
 
 # project cube or model
-def render(img, obj, projection, model, color=False):
+def render(img, obj, projection, model, scalingScale=6, color=False):
     defaultColor = (137, 27, 211)
     # maggiore il valore, maggiore lo scaling del modello
-    scalingScale = 6
     vertices = obj.vertices
     # scalingMatrix si occupa dello scaling del modello.
     scalingMatrix = np.eye(3) * scalingScale
