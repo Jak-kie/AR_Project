@@ -168,7 +168,7 @@ def featureMatching(markerReference, sourceImage):
     """
 
     # minimo ammontare di matchesAmount perche venga considerato valido
-    # numeri provati: 135, 120, 125
+    # numeri provati: 135, 120, 125, 140, 200, 175
     MIN_MATCHES = 140
     # numero di matches piu alti trovati
     currentBestAmount = 0
@@ -176,8 +176,8 @@ def featureMatching(markerReference, sourceImage):
     currentBestMarker = -1
     currentBestMatches, currentBestSourceImagePts = None, None
     for index, entry in enumerate(markerReference):
-        matches, sourceImagePts = entry.featureMatching(sourceImage)
         # sourceImagePts, sourceImageDsc, matches = entry.featureMatching(sourceImage)
+        matches, sourceImagePts = entry.featureMatching(sourceImage)
         # print ("Path del marker:" , entry.getPath())
         # print ("Numero di matches:" , len(matches))
         if len(matches) > MIN_MATCHES and len(matches) > currentBestAmount: 
@@ -208,8 +208,8 @@ def applyHomography(marker, sourceImagePts, matches):
     destinationPoints = np.float32([sourceImagePts[m.trainIdx].pt for m in matches]).reshape(-1, 1, 2)
 
     # Obtain the homography matrix
-    # homography, _ = cv2.findHomography(sourcePoints, destinationPoints, cv2.RANSAC, 5.0)
-    homography, _ = cv2.findHomography(sourcePoints, destinationPoints, cv2.RANSAC, 10.0)
+    homography, _ = cv2.findHomography(sourcePoints, destinationPoints, cv2.RANSAC, 5.0)
+    # homography, _ = cv2.findHomography(sourcePoints, destinationPoints, cv2.RANSAC, 10.0)
     # matchesMask = mask.ravel().tolist()
 
     # Apply the perspective transformation to the source image corners
