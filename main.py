@@ -1,3 +1,5 @@
+# sviluppo tramite ArucoMarkers
+
 # import moduli esterni
 import cv2
 import numpy as np
