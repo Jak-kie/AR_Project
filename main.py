@@ -5,7 +5,7 @@ import cv2
 import numpy as np
 
 # import moduli custom
-from renderer import projection_matrix, render
+from renderer import projection_matrix, render, renderV2
 from initialize import *
 
 # import moduli PIP
@@ -133,13 +133,14 @@ def main():
                 bottomRight:  (397, 273)
                 bottomLeft:  (218, 282)
                 """
-                (topLeft, topRight, bottomRight, bottomLeft) = markerCorner.reshape((4, 2))
+                # posizioni 2D degli angoli dei marker
+                floatCorners = (topLeft, topRight, bottomRight, bottomLeft) = markerCorner.reshape((4, 2))
+                
+                """
                 topLeft = (int(topLeft[0]), int(topLeft[1]))
                 topRight = (int(topRight[0]), int(topRight[1]))
                 bottomRight = (int(bottomRight[0]), int(bottomRight[1]))
                 bottomLeft = (int(bottomLeft[0]), int(bottomLeft[1]))
-
-                """
                 # testing per verificare come bene rileva il marker
                 # disegniamo la linea che delimita il marker
                 cv2.line(rgbInput, topLeft, topRight, (0, 255, 0), 2)
@@ -155,8 +156,28 @@ def main():
                 # draw the ArUco marker ID on the frame
                 cv2.putText(rgbInput, str(markerID), (topRight[0], topRight[1] - 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
                 """
-                
 
+                # Pose Estimation
+                # objp = np.array([[0.,0.,0.],[1.,0.,0.], [1.,1.,0.],[0.,1.,0.]], dtype='float32')
+                dist = np.zeros((4,1))          # temporaneo
+                markerLength = 0.10
+                startTimeEstimate = process_time()
+                rotVecs, transVecs = my_estimatePoseSingleMarkers(floatCorners, markerLength, cameraParameters, dist)
+                endTimeEstimate = process_time()
+                print("Tempo per estimate --- %s seconds ---" % (endTimeEstimate - startTimeEstimate))
+
+                """
+                print ("rotVecs: " , rotVecs)
+                print ("transVecs: " , transVecs)
+                print ("rotVecs shape: " , rotVecs.shape)
+                print ("transVecs shape: " , transVecs.shape)
+                print ("cameraParameters: ", cameraParameters)
+                print ("cameraParameters shape: ", cameraParameters.shape)            
+                rgbInput = cv2.drawFrameAxes(rgbInput, cameraParameters, dist, rotVecs, transVecs, markerLength)
+                """
+                obj = objDict[markerReference[0].getPath()]
+                # frame = render(frame, obj[0], projection, markerReference[bestMarker].getImage(), obj[1], True)
+                frame = renderV2(rgbInput, obj[0], rotVecs, transVecs, obj[1], color=False)
 
         else:
             print ("MARKER NON TROVATO")
@@ -165,17 +186,9 @@ def main():
         # isCameraActive = False
         """
         # Feature matching
-        startTimeFM = process_time()
         bestMarker, sourceImagePts, matches = featureMatching(markerReference, grayInput)
-        endTimeFM = process_time()
-        print("Tempo per featureMatching --- %s seconds ---" % (endTimeFM - startTimeFM))        
-        """
-        
-        """
+
         if bestMarker != -1:
-            # print("Trovato il marker" , markerReference[bestMarker].getPath() , ". Posizione nell'array =" , bestMarker)
-            # homography, transformedCorners = applyHomography(markerReference[bestMarker], sourceImagePts, matches)
-            startTimeHomography = process_time()
             homography = applyHomography(markerReference[bestMarker], sourceImagePts, matches)    
             frame = rgbInput
             endTimeHomography = process_time()
@@ -223,6 +236,36 @@ def main():
     
     cameraVideo.release()
     cv2.destroyWindow("preview")
+
+
+def my_estimatePoseSingleMarkers(corners, marker_size, mtx, distortion):
+    '''
+    This will estimate the rvec and tvec for each of the marker corners detected by:
+       corners, ids, rejectedImgPoints = detector.detectMarkers(image)
+    corners - is an array of detected corners for each detected marker in the image
+    marker_size - is the size of the detected markers
+    mtx - is the camera matrix
+    distortion - is the camera distortion matrix
+    RETURN list of rvecs, tvecs, and trash (so that it corresponds to the old estimatePoseSingleMarkers())
+    '''
+    marker_points = np.array([[-marker_size / 2, marker_size / 2, 0],
+                              [marker_size / 2, marker_size / 2, 0],
+                              [marker_size / 2, -marker_size / 2, 0],
+                              [-marker_size / 2, -marker_size / 2, 0]], dtype=np.float32)
+    """
+    trash = []
+    rvecs = []
+    tvecs = []
+    i = 0
+    for c in corners:
+        nada, R, t = cv2.solvePnP(marker_points, corners[i], mtx, distortion, False, cv2.SOLVEPNP_IPPE_SQUARE)
+        rvecs.append(R)
+        tvecs.append(t)
+        trash.append(nada)
+    return rvecs, tvecs
+    """
+    _, rotVecs, transVecs = cv2.solvePnP(marker_points, corners, mtx, distortion, False, cv2.SOLVEPNP_IPPE_SQUARE)
+    return rotVecs, transVecs
 
 
 def readFromCamera(cameraVideo, args):
