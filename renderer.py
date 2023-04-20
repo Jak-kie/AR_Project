@@ -109,9 +109,8 @@ def render(img, obj, projection, model, scalingScale=6, color=False):
     return img
 
 
-def renderV2(img, obj, rotVecs, transVecs, scalingScale=6, color=False):
+def renderV2(img, obj, matrix, scalingScale=6, color=False):
     defaultColor = (137, 27, 211)
-    # maggiore il valore, maggiore lo scaling del modello
     vertices = obj.vertices
     # scalingMatrix si occupa dello scaling del modello.
     scalingMatrix = np.eye(3) * scalingScale
@@ -121,11 +120,16 @@ def renderV2(img, obj, rotVecs, transVecs, scalingScale=6, color=False):
         # in face ci sta una istanza del tipo (face, norms, texcoords, material)
         # e.g. [1718, 1710, 1720]
         face_vertices = face[0]
+        print ("face_vertices: " , face_vertices)
         points = np.array([vertices[vertex - 1] for vertex in face_vertices])
+        print ("np.array: " , points)
         points = np.dot(points, scalingMatrix)
+        print ("np.dot: " , points)
         # points = np.array([[p[0] + w / 2, p[1] + h / 2, p[2]] for p in points])
-        dst = cv2.perspectiveTransform(points.reshape(-1, 1, 3), projection)
+        dst = cv2.perspectiveTransform(points.reshape(-1, 1, 3), matrix)
         imgpts = np.int32(dst)
+
+        print ("imgpts :" , imgpts)
 
         if color is False: 
             cv2.fillConvexPoly(img, imgpts, defaultColor)
@@ -134,5 +138,5 @@ def renderV2(img, obj, rotVecs, transVecs, scalingScale=6, color=False):
             color = [x * 255 for x in tmpObj["Kd"]]
             color = color[::-1]
             cv2.fillConvexPoly(img, imgpts, color)
-
-    return img    
+            
+    return img

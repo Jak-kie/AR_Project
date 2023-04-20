@@ -175,12 +175,49 @@ def main():
                 print ("cameraParameters shape: ", cameraParameters.shape)            
                 rgbInput = cv2.drawFrameAxes(rgbInput, cameraParameters, dist, rotVecs, transVecs, markerLength)
                 """
-                obj = objDict[markerReference[0].getPath()]
+
+                # get homography matrix
+                K = cameraParameters
+                D = dist
+                R = cv2.Rodrigues(rotVecs)[0]
+                T = transVecs
+
+                print ("K: " , K)
+                print ("D: " , D)
+                print ("R: " , R)
+                print ("T: " , T)
+
+                INVERSE_MATRIX = np.array([[ 1.0, 1.0, 1.0, 1.0],
+                                        [-1.0,-1.0,-1.0,-1.0],
+                                        [-1.0,-1.0,-1.0,-1.0],
+                                        [ 1.0, 1.0, 1.0, 1.0]])
+                """view_matrix = np.array([[R[0,0],R[0,1],R[0,2],T[0]],
+                    [R[1,0],R[1,1],R[1,2],T[1]],
+                    [R[2,0],R[2,1],R[2,2],T[2]],
+                    [0.0, 0.0, 0.0, 1.0]])"""
+                view_matrix = np.array([[R[0,0],R[0,1],R[0,2],T[0]],
+                                        [R[1,0],R[1,1],R[1,2],T[1]],
+                                        [R[2,0],R[2,1],R[2,2],T[2]],
+                                        [  0.0,   0.0,   0.0,   1.0]],
+                                        np.float32)
+                print ("view_matrix: " , view_matrix)               # camera transformation matrix
+                view_matrix = view_matrix * INVERSE_MATRIX
+                print ("view_matrix * INVERSE_MATRIX: " , view_matrix)
+                view_matrix = np.transpose(view_matrix)
+                print ("view_matrix transpose: " , view_matrix)
+                # projection = projection_matrix(cameraParameters, view_matrix)  
+
+                # rendering
+                # obj = objDict[markerReference[0].getPath()]
+                obj = [OBJ("models\low-poly-fox\low-poly-fox.obj", swapyz=True), 100]
+                # frameOutput = rgbInput
+                frameOutput = renderV2(rgbInput, obj[0], view_matrix, obj[1], color=False)
+
                 # frame = render(frame, obj[0], projection, markerReference[bestMarker].getImage(), obj[1], True)
-                frame = renderV2(rgbInput, obj[0], rotVecs, transVecs, obj[1], color=False)
 
         else:
             print ("MARKER NON TROVATO")
+            frameOutput = rgbInput
 
         # decommentare se voglio esaminare un solo frame
         # isCameraActive = False
@@ -228,8 +265,9 @@ def main():
             print("Marker non trovato --- %s seconds ---" % (endTimeFinal - startTimeFinal))
         
         """
-        
-        cv2.imshow('preview', rgbInput)
+
+        # cv2.imshow('preview', rgbInput)
+        cv2.imshow('preview', frameOutput)
         key = cv2.waitKey(20)
         if key == 27: # exit on ESC
             break
