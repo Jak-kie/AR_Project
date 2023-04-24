@@ -122,9 +122,10 @@ def renderV2(img, obj, matrix, scalingScale=6, color=False):
         face_vertices = face[0]
         print ("face_vertices: " , face_vertices)
         points = np.array([vertices[vertex - 1] for vertex in face_vertices])
-        print ("np.array: " , points)
+        # swap YZ
+        print ("points: " , points)
         points = np.dot(points, scalingMatrix)
-        print ("np.dot: " , points)
+        print ("points DOT scalingMatrix: " , points)
         # points = np.array([[p[0] + w / 2, p[1] + h / 2, p[2]] for p in points])
         dst = cv2.perspectiveTransform(points.reshape(-1, 1, 3), matrix)
         imgpts = np.int32(dst)

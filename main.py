@@ -26,55 +26,7 @@ def main():
 
     print ("Inizializzazione in corso...")
     # Inizializzazione
-    markerReference, cameraParameters, objDict, cameraVideo = initialize()
-
-
-    # prepariamo l'aruco detector
-    # construct the argument parser and parse the arguments
-    ap = argparse.ArgumentParser()
-    ap.add_argument("-t", "--type", type=str,
-        default="DICT_6X6_1000",
-        help="type of ArUCo tag to detect")
-    args = vars(ap.parse_args())
-    
-    # define names of each possible ArUco tag OpenCV supports with a dictionary
-    ARUCO_DICT = {
-        "DICT_4X4_50": cv2.aruco.DICT_4X4_50,
-        "DICT_4X4_100": cv2.aruco.DICT_4X4_100,
-        "DICT_4X4_250": cv2.aruco.DICT_4X4_250,
-        "DICT_4X4_1000": cv2.aruco.DICT_4X4_1000,
-        "DICT_5X5_50": cv2.aruco.DICT_5X5_50,
-        "DICT_5X5_100": cv2.aruco.DICT_5X5_100,
-        "DICT_5X5_250": cv2.aruco.DICT_5X5_250,
-        "DICT_5X5_1000": cv2.aruco.DICT_5X5_1000,
-        "DICT_6X6_50": cv2.aruco.DICT_6X6_50,
-        "DICT_6X6_100": cv2.aruco.DICT_6X6_100,
-        "DICT_6X6_250": cv2.aruco.DICT_6X6_250,
-        "DICT_6X6_1000": cv2.aruco.DICT_6X6_1000,
-        "DICT_7X7_50": cv2.aruco.DICT_7X7_50,
-        "DICT_7X7_100": cv2.aruco.DICT_7X7_100,
-        "DICT_7X7_250": cv2.aruco.DICT_7X7_250,
-        "DICT_7X7_1000": cv2.aruco.DICT_7X7_1000,
-        "DICT_ARUCO_ORIGINAL": cv2.aruco.DICT_ARUCO_ORIGINAL,
-        "DICT_APRILTAG_16h5": cv2.aruco.DICT_APRILTAG_16h5,
-        "DICT_APRILTAG_25h9": cv2.aruco.DICT_APRILTAG_25h9,
-        "DICT_APRILTAG_36h10": cv2.aruco.DICT_APRILTAG_36h10,
-        "DICT_APRILTAG_36h11": cv2.aruco.DICT_APRILTAG_36h11
-    }
-
-    if ARUCO_DICT.get(args["type"], None) is None:
-        print("[INFO] ArUCo tag of '{}' is not supported".format(
-            args["type"]))
-        sys.exit()
-
-    print("[INFO] detecting '{}' tags...".format(args["type"]))
-    arucoDict = cv2.aruco.Dictionary_get(ARUCO_DICT[args["type"]])
-    arucoParams = cv2.aruco.DetectorParameters_create()
-
-    print(args)
-    arucoType = ARUCO_DICT[args["type"]]
-    print(arucoType)
-
+    cameraParameters, _, cameraVideo, arucoDict, arucoParams = initialize()
 
     if cameraVideo.isOpened(): # try to get the first frame
         isCameraActive, _ = cameraVideo.read()
@@ -91,7 +43,7 @@ def main():
         startTimeFinal = process_time()
 
         # Lettura del frame dalla camera
-        isCameraActive, rgbInput = readFromCamera(cameraVideo, args)
+        isCameraActive, rgbInput = readFromCamera(cameraVideo)
         grayInput = cv2.cvtColor(rgbInput, cv2.COLOR_BGR2GRAY)
 
         # tempo bassissimo, 0.0 seconds
@@ -136,7 +88,6 @@ def main():
                 # posizioni 2D degli angoli dei marker
                 floatCorners = (topLeft, topRight, bottomRight, bottomLeft) = markerCorner.reshape((4, 2))
                 
-                """
                 topLeft = (int(topLeft[0]), int(topLeft[1]))
                 topRight = (int(topRight[0]), int(topRight[1]))
                 bottomRight = (int(bottomRight[0]), int(bottomRight[1]))
@@ -155,7 +106,6 @@ def main():
 		        
                 # draw the ArUco marker ID on the frame
                 cv2.putText(rgbInput, str(markerID), (topRight[0], topRight[1] - 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-                """
 
                 # Pose Estimation
                 # objp = np.array([[0.,0.,0.],[1.,0.,0.], [1.,1.,0.],[0.,1.,0.]], dtype='float32')
@@ -187,6 +137,14 @@ def main():
                 print ("R: " , R)
                 print ("T: " , T)
 
+                # debug
+                """
+                R2 = cv2.Rodrigues(rotVecs)
+                R3 = cv2.Rodrigues(rotVecs)[1]
+                print ("R2: " , R2)
+                print ("R3: " , R3)
+                """
+
                 INVERSE_MATRIX = np.array([[ 1.0, 1.0, 1.0, 1.0],
                                         [-1.0,-1.0,-1.0,-1.0],
                                         [-1.0,-1.0,-1.0,-1.0],
@@ -209,9 +167,11 @@ def main():
 
                 # rendering
                 # obj = objDict[markerReference[0].getPath()]
+                # TODO: controlla lo swapyz
                 obj = [OBJ("models\low-poly-fox\low-poly-fox.obj", swapyz=True), 100]
-                # frameOutput = rgbInput
-                frameOutput = renderV2(rgbInput, obj[0], view_matrix, obj[1], color=False)
+                frameOutput = rgbInput
+
+                # frameOutput = renderV2(rgbInput, obj[0], view_matrix, obj[1], color=False)
 
                 # frame = render(frame, obj[0], projection, markerReference[bestMarker].getImage(), obj[1], True)
 
@@ -221,50 +181,6 @@ def main():
 
         # decommentare se voglio esaminare un solo frame
         # isCameraActive = False
-        """
-        # Feature matching
-        bestMarker, sourceImagePts, matches = featureMatching(markerReference, grayInput)
-
-        if bestMarker != -1:
-            homography = applyHomography(markerReference[bestMarker], sourceImagePts, matches)    
-            frame = rgbInput
-            endTimeHomography = process_time()
-            print("Tempo per applyHomography --- %s seconds ---" % (endTimeHomography - startTimeHomography))
-            # frame = cv2.polylines(rgbInput, [np.int32(transformedCorners)], True, 255, 3, cv2.LINE_AA)
-            
-            # obtain 3D projection matrix from homography matrix and camera parameters
-            if homography is not None:
-                try:
-                    startTimeProjection = process_time()
-                    projection = projection_matrix(cameraParameters, homography)  
-                    endTimeProjection = process_time()
-                    print("Tempo per projection_matrix --- %s seconds ---" % (endTimeProjection - startTimeProjection))
-
-                    # project cube or model
-                    # passato il modello associato al marker
-                    startTimeRender = process_time()
-                    obj = objDict[markerReference[bestMarker].getPath()]
-                    frame = render(frame, obj[0], projection, markerReference[bestMarker].getImage(), obj[1], True)
-                    endTimeRender = process_time()
-                    print("Tempo per render --- %s seconds ---" % (endTimeRender - startTimeRender))
-
-                    # show result
-                    cv2.imshow('preview', frame)
-                    # cv2.waitKey(0)
-                    # cv2.destroyAllWindows()
-
-                    endTimeFinal = process_time()
-                    print("Trovato il marker --- %s seconds ---" % (endTimeFinal - startTimeFinal))
-                except:
-                    cv2.imshow('preview', rgbInput)
-        else:
-            # print ("Nessun marker trovato")
-            cv2.imshow('preview', rgbInput)
-            
-            endTimeFinal = process_time()
-            print("Marker non trovato --- %s seconds ---" % (endTimeFinal - startTimeFinal))
-        
-        """
 
         # cv2.imshow('preview', rgbInput)
         cv2.imshow('preview', frameOutput)
@@ -306,7 +222,7 @@ def my_estimatePoseSingleMarkers(corners, marker_size, mtx, distortion):
     return rotVecs, transVecs
 
 
-def readFromCamera(cameraVideo, args):
+def readFromCamera(cameraVideo):
     """Riceve la immagine dalla camera del dispositivo.
     Per ora la immagine la otteniamo tramite lettura da file.
 
@@ -410,15 +326,6 @@ def applyHomography(marker, sourceImagePts, matches):
 
     # Obtain the homography matrix
     homography, _ = cv2.findHomography(sourcePoints, destinationPoints, cv2.RANSAC, 5.0)
-    # homography, _ = cv2.findHomography(sourcePoints, destinationPoints, cv2.RANSAC, 10.0)
-    # matchesMask = mask.ravel().tolist()
-
-    # Apply the perspective transformation to the source image corners
-    # h, w = marker.getImage().shape
-    # corners = np.float32([[0, 0], [0, h - 1], [w - 1, h - 1], [w - 1, 0]]).reshape(-1, 1, 2)
-    # transformedCorners = cv2.perspectiveTransform(corners, homography)
-
-    # return homography, transformedCorners
     return homography
 
 
