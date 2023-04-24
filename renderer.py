@@ -5,17 +5,31 @@ import cv2
 
 
 def projection_matrix(camera_parameters, homography):
+    # inverto tutti i valori
+
+    print ("homography: ", homography)
+
     homography = homography * (-1)
     rot_and_transl = np.dot(np.linalg.inv(camera_parameters), homography)
     col_1 = rot_and_transl[:, 0]
     col_2 = rot_and_transl[:, 1]
     col_3 = rot_and_transl[:, 2]
-    
+
+    print ("rot_and_trans: " , rot_and_transl)
+    print ("col_1: " , col_1)
+    print ("col_2: " , col_2)
+    print ("col_3: " , col_3)
+
     # normalise vectors
     l = math.sqrt(np.linalg.norm(col_1, 2) * np.linalg.norm(col_2, 2))
     rot_1 = col_1 / l
     rot_2 = col_2 / l
     translation = col_3 / l
+
+    print ("l: " , l)
+    print ("rot_1: " , rot_1)
+    print ("rot_2: " , rot_2)
+    print ("translation: " , translation)    
     
     # compute the orthonormal basis
     c = rot_1 + rot_2
@@ -24,9 +38,20 @@ def projection_matrix(camera_parameters, homography):
     rot_1 = np.dot(c / np.linalg.norm(c, 2) + d / np.linalg.norm(d, 2), 1 / math.sqrt(2))
     rot_2 = np.dot(c / np.linalg.norm(c, 2) - d / np.linalg.norm(d, 2), 1 / math.sqrt(2))
     rot_3 = np.cross(rot_1, rot_2)
+
+    print ("c: " , c)
+    print ("p: " , p)
+    print ("d: " , d)
+    print ("rot_1: " , rot_1)
+    print ("rot_2: " , rot_2)
+    print ("rot_3: " , rot_3)
     
     # finally, compute the 3D projection matrix from the model to the current frame
     projection = np.stack((rot_1, rot_2, rot_3, translation)).T
+
+    print ("projection: " , projection)
+
+    print ("np.dot(camera_parameters, projection): " , np.dot(camera_parameters, projection))
     
     return np.dot(camera_parameters, projection)
 
@@ -88,6 +113,7 @@ def render(img, obj, projection, model, scalingScale=6, color=False):
 
             [[297.73469973  11.22027995]]]
         """
+        # avrebbe senso anche cv2.warpPerspective ???
         dst = cv2.perspectiveTransform(points.reshape(-1, 1, 3), projection)
         """
         e.g. imgpts = [[[296   9]]
