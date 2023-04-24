@@ -1,4 +1,4 @@
-# sviluppo tramite ArucoMarkers
+# sviluppo tramite ArucoMarkers integrato con OpenGL
 
 # import moduli esterni
 import cv2
