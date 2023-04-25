@@ -15,9 +15,11 @@ import numpy as np
 # import moduli custom
 from renderer import projection_matrix, render, renderV2
 from initialize import *
+from imageLoader import ImageLoader
 
 # import moduli PIP
-from objloader_simple import *
+# from objloader_simple import *
+from objloader import *
 
 # per testare quando tempo ci mette ad una esecuzione
 from time import process_time
@@ -145,10 +147,6 @@ def detectRender(cameraParameters, cameraVideo, arucoDict, arucoParams):
         print ("MARKER NON TROVATO")
         frameOutput = rgbInput
     # cv2.imshow('preview', frameOutput)
-    # le immagini sono in formato (height, width, channels) (480, 640, 3). opencv legge le immagini in BGR
-    # a noi servono immagini dove width > height, (640, 480, 3), in formato RGB
-    frameOutput = cv2.cvtColor(frameOutput, cv2.COLOR_BGR2RGB)
-    frameOutput = frameOutput.transpose(1, 0, 2)
     return frameOutput
 
 
@@ -239,13 +237,145 @@ def main():
     print ("Inizializzazione in corso...")
     cameraParameters, _, cameraVideo, arucoDict, arucoParams = initialize()
     print ("Inizializzazione terminata!")
+    
+    im_loader = ImageLoader(0, 0)
 
     pg.init()
+
+    pgClock = pg.time.Clock()
 
     width = 640
     height = 480
     displayRes = (width, height)
-    # gameDisplay = pg.display.set_mode(displayRes, DOUBLEBUF|OPENGL)
+    FLAGS = DOUBLEBUF | OPENGL
+    gameDisplay = pg.display.set_mode(displayRes, FLAGS)
+
+    fox = OBJ("models\low-poly-fox\low-poly-fox.obj")
+    # tieFighter = OBJ("models\star-wars-vader-tie-fighter-obj\star-wars-vader-tie-fighter.obj")
+    # gameDisplay = pg.display.set_mode(displayRes)
+
+    # setta il colore
+    # colorBG = pg.Color(0, 0, 255)
+    # colorBG = (0, 0, 255)
+
+    # set background
+    # background = pg.Surface(displayRes)
+    # background.fill(colorBG)
+    # pg.draw.rect(background,(0,255,255),(20,20,40,40))
+
+    gluPerspective(45, (displayRes[0]/displayRes[1]), 0.1, 50.0)
+
+    # maggiore il valore, maggiormente viene spostato
+    # print("current matrix mode: " , glGetIntegerv(GL_MATRIX_MODE))
+    # 5888 = GL_MODELVIEW
+
+    # print ("1. glGetFloatv GL_MODELVIEW_MATRIX:" , glGetFloatv(GL_MODELVIEW_MATRIX))
+    glTranslatef(0.0, -1, -7)
+
+    print ("glGetFloatv GL_PROJECTION_MATRIX:" , glGetFloatv(GL_PROJECTION_MATRIX))
+    print ("2. glGetFloatv GL_MODELVIEW_MATRIX:" , glGetFloatv(GL_MODELVIEW_MATRIX))
+
+    # angle = 0
+
+    running = True
+    while running:
+        # pg.time.wait(10)
+        pgClock.tick(60)
+
+        # gestore di eventi
+        for event in pg.event.get():
+            if event.type == pg.QUIT:
+                running = False
+                print ("QUIT: closing pygame...")
+            if event.type == pg.KEYDOWN:
+                if event.key == pg.K_ESCAPE:
+                    running = False
+                    print ("Escape: closing pygame...")
+
+        # ottieni il frame
+        frame = detectRender(cameraParameters, cameraVideo, arucoDict, arucoParams)
+
+        glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT)
+
+        """
+        # per elementi 2D
+        glMatrixMode(GL_PROJECTION)
+        glLoadIdentity()
+        gluOrtho2D(0, width, height, 0)
+
+        glMatrixMode(GL_MODELVIEW)
+        glLoadIdentity()
+        glDisable(GL_DEPTH_TEST)            # non fa controlli per il drawing di pixel nascosti
+        im_loader.load(frame)
+        glColor3f(1, 1, 1)
+        im_loader.draw()
+        """
+
+        # reset delle matrici 
+        glMatrixMode(GL_PROJECTION)
+        glLoadIdentity()
+        # gluPerspective(45, (displayRes[0]/displayRes[1]), 0.1, 50.0)
+        glMatrixMode(GL_MODELVIEW)
+        print ("3. glGetFloatv GL_MODELVIEW_MATRIX:" , glGetFloatv(GL_MODELVIEW_MATRIX))
+        # glLoadIdentity()
+        # glTranslate(0.0, 0.0, -5)
+        # glRotate(angle, 0, 1, 0)          # gira sempre piu velocemente
+        # angle += 1
+        # glTranslate(0.0, 0.0, -0.05)
+        glRotatef(1, 0, 1, 0)
+        print ("4. glGetFloatv GL_MODELVIEW_MATRIX POST ROTATE:" , glGetFloatv(GL_MODELVIEW_MATRIX))
+
+        # glRotatef(1, 1, 1, 1)
+
+        # rendering effettivo
+        glEnable(GL_DEPTH_TEST)
+        fox.render()
+        # tieFighter.render()
+        # renderSolidCube()
+
+        # usiamo il buffer corretto
+        pg.display.flip()
+
+        """
+        # alternativa 1
+        pg.surfarray.blit_array(background, frame)
+        # bkgr = pg.image.load(frame)
+        # bkgr.convert()
+        gameDisplay.blit(background, (0,0))
+        """
+        # alternativa 2
+        # background = pg.surfarray.make_surface(frame)
+        # gameDisplay.blit(background, (0,0))
+
+        # render degli oggetti nella scena
+        # renderSolidCube()
+
+        # pg.display.flip()
+
+        print ("rendering in corso...")
+
+    # pg.quit()
+    print ("rendering terminato")
+    sys.exit(1) # quit()
+
+
+# questa versione NON usa OpenGL
+def main_OLD():
+
+    # initialize detectRender
+    print ("Inizializzazione in corso...")
+    cameraParameters, _, cameraVideo, arucoDict, arucoParams = initialize()
+    print ("Inizializzazione terminata!")
+
+    pg.init()
+
+    pgClock = pg.time.Clock()
+
+    width = 640
+    height = 480
+    displayRes = (width, height)
+    FLAGS = DOUBLEBUF | OPENGL
+    # gameDisplay = pg.display.set_mode(displayRes, FLAGS)
     gameDisplay = pg.display.set_mode(displayRes)
 
     # setta il colore
@@ -264,7 +394,9 @@ def main():
     running = True
     while running:
         pg.time.wait(10)
+        # pgClock.tick(60)
 
+        # gestore di eventi
         for event in pg.event.get():
             if event.type == pg.QUIT:
                 running = False
@@ -279,6 +411,10 @@ def main():
 
         # otteniamo la immagine di sfondo
         frame = detectRender(cameraParameters, cameraVideo, arucoDict, arucoParams)
+        # le immagini sono in formato (height, width, channels) (480, 640, 3). opencv legge le immagini in BGR
+        # a noi servono immagini dove width > height, (640, 480, 3), in formato RGB
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        frame = frame.transpose(1, 0, 2)
         """
         # alternativa 1
         pg.surfarray.blit_array(background, frame)
@@ -292,12 +428,14 @@ def main():
 
         # render degli oggetti nella scena
         # renderSolidCube()
+
         pg.display.flip()
 
         print ("rendering in corso...")
 
     # pg.quit()
     sys.exit(1) # quit()
+
 
 if __name__ == '__main__':
     main()

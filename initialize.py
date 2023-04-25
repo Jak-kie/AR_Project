@@ -103,8 +103,8 @@ def loadAruco():
     arucoDict = cv2.aruco.Dictionary_get(ARUCO_DICT[args["type"]])
     arucoParams = cv2.aruco.DetectorParameters_create()
 
-    print(args)
-    arucoType = ARUCO_DICT[args["type"]]
-    print(arucoType)
+    # print(args)
+    # arucoType = ARUCO_DICT[args["type"]]
+    # print(arucoType)
 
     return arucoDict, arucoParams    
