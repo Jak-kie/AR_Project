@@ -1,4 +1,12 @@
 # sviluppo tramite ArucoMarkers integrato con OpenGL
+"""
+TODO l'approccio che cerchiamo deve permettere le seguenti features:
+    - caricamento modello con texture
+    - utilizzo diretto della view matrix per visualizzare il modello orientato correttamente
+    - setting di un background come sfondo
+    Tutto cio preferibilmente senza complicarmi la vita in maniera indicibile.
+    Miglior candidato finora? PyGame con OpenGL
+"""
 
 # import moduli esterni
 import cv2
@@ -18,178 +26,130 @@ from time import process_time
 import argparse
 import sys
 
+# per pygame
+import pygame as pg
+from pygame.locals import *
 
-def main():
-    """Funzione main.
-    Chiama tutti i sottopassaggi della pipeline.
-    """
+from OpenGL.GL import *
+from OpenGL.GLU import *
 
-    print ("Inizializzazione in corso...")
-    # Inizializzazione
-    cameraParameters, _, cameraVideo, arucoDict, arucoParams = initialize()
 
+def detectRender(cameraParameters, cameraVideo, arucoDict, arucoParams):
     if cameraVideo.isOpened(): # try to get the first frame
         isCameraActive, _ = cameraVideo.read()
     else:
         isCameraActive = False
         sys.exit()
-
-    print ("Inizializzazione terminata!")
-
-    while isCameraActive:
-        
-        print ("-------------------------------------------------------------------------")
-
-        startTimeFinal = process_time()
-
-        # Lettura del frame dalla camera
-        isCameraActive, rgbInput = readFromCamera(cameraVideo)
-        grayInput = cv2.cvtColor(rgbInput, cv2.COLOR_BGR2GRAY)
-
-        # tempo bassissimo, 0.0 seconds
-        endTimeGetGray = process_time()
-        print("Tempo per leggere il frame e convertirlo in grayscale --- %s seconds ---" % (endTimeGetGray - startTimeFinal))        
-
-        startTimeMatching = process_time()
-        arucoCorners, arucoIds = arucoMatching(grayInput, arucoDict, arucoParams)
-        endTimeMatching = process_time()
-        print("Tempo per arucoMatching --- %s seconds ---" % (endTimeMatching - startTimeMatching))       
-
-        if (len(arucoCorners) > 0):
-            print ("MARKER TROVATO")
-            arucoIds = arucoIds.flatten()
-
-            # TODO: gestire caso in cui ci sono piu marker, per ora limitiamoci a 1 solo nella scena
-            for (markerCorner, markerID) in zip(arucoCorners, arucoIds):
-                """
-                arucoCorner è costituito dalle posizioni in ordine orario
-                TL --> TR
-                        |
-                        |
-                        V
-                BL <-- BR
-
-                esempio di print:
-                markerCorner:  [[[215. 107.]
-                    [388.  83.]
-                    [397. 273.]
-                    [218. 282.]]]
-                # pre int 
-                topLeft:  [215. 107.]
-                topRight:  [388.  83.]
-                bottomRight:  [397. 273.]
-                bottomLeft:  [218. 282.]
-                # post int
-                topLeft:  (215, 107)
-                topRight:  (388, 83)
-                bottomRight:  (397, 273)
-                bottomLeft:  (218, 282)
-                """
-                # posizioni 2D degli angoli dei marker
-                floatCorners = (topLeft, topRight, bottomRight, bottomLeft) = markerCorner.reshape((4, 2))
-                
-                topLeft = (int(topLeft[0]), int(topLeft[1]))
-                topRight = (int(topRight[0]), int(topRight[1]))
-                bottomRight = (int(bottomRight[0]), int(bottomRight[1]))
-                bottomLeft = (int(bottomLeft[0]), int(bottomLeft[1]))
-                # testing per verificare come bene rileva il marker
-                # disegniamo la linea che delimita il marker
-                cv2.line(rgbInput, topLeft, topRight, (0, 255, 0), 2)
-                cv2.line(rgbInput, topRight, bottomRight, (0, 255, 0), 2)
-                cv2.line(rgbInput, bottomRight, bottomLeft, (0, 255, 0), 2)
-                cv2.line(rgbInput, bottomLeft, topLeft, (0, 255, 0), 2)
-
-                # compute and draw the center (x, y)-coordinates of the ArUco marker
-                cX = int((topLeft[0] + bottomRight[0]) / 2.0)
-                cY = int((topLeft[1] + bottomRight[1]) / 2.0)
-                cv2.circle(rgbInput, (cX, cY), 4, (0, 0, 255), -1)
-		        
-                # draw the ArUco marker ID on the frame
-                cv2.putText(rgbInput, str(markerID), (topRight[0], topRight[1] - 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-
-                # Pose Estimation
-                # objp = np.array([[0.,0.,0.],[1.,0.,0.], [1.,1.,0.],[0.,1.,0.]], dtype='float32')
-                dist = np.zeros((4,1))          # temporaneo
-                markerLength = 0.10
-                startTimeEstimate = process_time()
-                rotVecs, transVecs = my_estimatePoseSingleMarkers(floatCorners, markerLength, cameraParameters, dist)
-                endTimeEstimate = process_time()
-                print("Tempo per estimate --- %s seconds ---" % (endTimeEstimate - startTimeEstimate))
-
-                """
-                print ("rotVecs: " , rotVecs)
-                print ("transVecs: " , transVecs)
-                print ("rotVecs shape: " , rotVecs.shape)
-                print ("transVecs shape: " , transVecs.shape)
-                print ("cameraParameters: ", cameraParameters)
-                print ("cameraParameters shape: ", cameraParameters.shape)            
-                rgbInput = cv2.drawFrameAxes(rgbInput, cameraParameters, dist, rotVecs, transVecs, markerLength)
-                """
-
-                # get homography matrix
-                K = cameraParameters
-                D = dist
-                R = cv2.Rodrigues(rotVecs)[0]
-                T = transVecs
-
-                print ("K: " , K)
-                print ("D: " , D)
-                print ("R: " , R)
-                print ("T: " , T)
-
-                # debug
-                """
-                R2 = cv2.Rodrigues(rotVecs)
-                R3 = cv2.Rodrigues(rotVecs)[1]
-                print ("R2: " , R2)
-                print ("R3: " , R3)
-                """
-
-                INVERSE_MATRIX = np.array([[ 1.0, 1.0, 1.0, 1.0],
-                                        [-1.0,-1.0,-1.0,-1.0],
-                                        [-1.0,-1.0,-1.0,-1.0],
-                                        [ 1.0, 1.0, 1.0, 1.0]])
-                """view_matrix = np.array([[R[0,0],R[0,1],R[0,2],T[0]],
-                    [R[1,0],R[1,1],R[1,2],T[1]],
-                    [R[2,0],R[2,1],R[2,2],T[2]],
-                    [0.0, 0.0, 0.0, 1.0]])"""
-                view_matrix = np.array([[R[0,0],R[0,1],R[0,2],T[0]],
-                                        [R[1,0],R[1,1],R[1,2],T[1]],
-                                        [R[2,0],R[2,1],R[2,2],T[2]],
-                                        [  0.0,   0.0,   0.0,   1.0]],
-                                        np.float32)
-                print ("view_matrix: " , view_matrix)               # camera transformation matrix
-                view_matrix = view_matrix * INVERSE_MATRIX
-                print ("view_matrix * INVERSE_MATRIX: " , view_matrix)
-                view_matrix = np.transpose(view_matrix)
-                print ("view_matrix transpose: " , view_matrix)
-                # projection = projection_matrix(cameraParameters, view_matrix)  
-
-                # rendering
-                # obj = objDict[markerReference[0].getPath()]
-                # TODO: controlla lo swapyz
-                obj = [OBJ("models\low-poly-fox\low-poly-fox.obj", swapyz=True), 100]
-                frameOutput = rgbInput
-
-                # frameOutput = renderV2(rgbInput, obj[0], view_matrix, obj[1], color=False)
-
-                # frame = render(frame, obj[0], projection, markerReference[bestMarker].getImage(), obj[1], True)
-
-        else:
-            print ("MARKER NON TROVATO")
+    # Lettura del frame dalla camera
+    isCameraActive, rgbInput = readFromCamera(cameraVideo)
+    grayInput = cv2.cvtColor(rgbInput, cv2.COLOR_BGR2GRAY)
+    arucoCorners, arucoIds = arucoMatching(grayInput, arucoDict, arucoParams)
+    if (len(arucoCorners) > 0):
+        print ("MARKER TROVATO")
+        arucoIds = arucoIds.flatten()
+        # TODO: gestire caso in cui ci sono piu marker, per ora limitiamoci a 1 solo nella scena
+        for (markerCorner, markerID) in zip(arucoCorners, arucoIds):
+            """
+            arucoCorner è costituito dalle posizioni in ordine orario
+            TL --> TR
+                    |
+                    |
+                    V
+            BL <-- BR
+            esempio di print:
+            markerCorner:  [[[215. 107.]
+                [388.  83.]
+                [397. 273.]
+                [218. 282.]]]
+            # pre int 
+            topLeft:  [215. 107.]
+            topRight:  [388.  83.]
+            bottomRight:  [397. 273.]
+            bottomLeft:  [218. 282.]
+            # post int
+            topLeft:  (215, 107)
+            topRight:  (388, 83)
+            bottomRight:  (397, 273)
+            bottomLeft:  (218, 282)
+            """
+            # posizioni 2D degli angoli dei marker
+            floatCorners = (topLeft, topRight, bottomRight, bottomLeft) = markerCorner.reshape((4, 2))
+            
+            topLeft = (int(topLeft[0]), int(topLeft[1]))
+            topRight = (int(topRight[0]), int(topRight[1]))
+            bottomRight = (int(bottomRight[0]), int(bottomRight[1]))
+            bottomLeft = (int(bottomLeft[0]), int(bottomLeft[1]))
+            # testing per verificare come bene rileva il marker
+            # disegniamo la linea che delimita il marker
+            cv2.line(rgbInput, topLeft, topRight, (0, 255, 0), 2)
+            cv2.line(rgbInput, topRight, bottomRight, (0, 255, 0), 2)
+            cv2.line(rgbInput, bottomRight, bottomLeft, (0, 255, 0), 2)
+            cv2.line(rgbInput, bottomLeft, topLeft, (0, 255, 0), 2)
+            # compute and draw the center (x, y)-coordinates of the ArUco marker
+            cX = int((topLeft[0] + bottomRight[0]) / 2.0)
+            cY = int((topLeft[1] + bottomRight[1]) / 2.0)
+            cv2.circle(rgbInput, (cX, cY), 4, (0, 0, 255), -1)
+      
+            # draw the ArUco marker ID on the frame
+            cv2.putText(rgbInput, str(markerID), (topRight[0], topRight[1] - 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+            # Pose Estimation
+            # objp = np.array([[0.,0.,0.],[1.,0.,0.], [1.,1.,0.],[0.,1.,0.]], dtype='float32')
+            dist = np.zeros((4,1))          # temporaneo
+            markerLength = 0.10
+            rotVecs, transVecs = my_estimatePoseSingleMarkers(floatCorners, markerLength, cameraParameters, dist)
+            # get homography matrix
+            K = cameraParameters
+            D = dist
+            R = cv2.Rodrigues(rotVecs)[0]
+            T = transVecs
+            """
+            print ("K: " , K)
+            print ("D: " , D)
+            print ("R: " , R)
+            print ("T: " , T)
+            """
+            # debug
+            """
+            R2 = cv2.Rodrigues(rotVecs)
+            R3 = cv2.Rodrigues(rotVecs)[1]
+            print ("R2: " , R2)
+            print ("R3: " , R3)
+            """
+            INVERSE_MATRIX = np.array([[ 1.0, 1.0, 1.0, 1.0],
+                                    [-1.0,-1.0,-1.0,-1.0],
+                                    [-1.0,-1.0,-1.0,-1.0],
+                                    [ 1.0, 1.0, 1.0, 1.0]])
+            """view_matrix = np.array([[R[0,0],R[0,1],R[0,2],T[0]],
+                [R[1,0],R[1,1],R[1,2],T[1]],
+                [R[2,0],R[2,1],R[2,2],T[2]],
+                [0.0, 0.0, 0.0, 1.0]])"""
+            view_matrix = np.array([[R[0,0],R[0,1],R[0,2],T[0]],
+                                    [R[1,0],R[1,1],R[1,2],T[1]],
+                                    [R[2,0],R[2,1],R[2,2],T[2]],
+                                    [  0.0,   0.0,   0.0,   1.0]],
+                                    np.float32)
+            # print ("view_matrix: " , view_matrix)               # camera transformation matrix
+            view_matrix = view_matrix * INVERSE_MATRIX
+            # print ("view_matrix * INVERSE_MATRIX: " , view_matrix)
+            view_matrix = np.transpose(view_matrix)
+            # print ("view_matrix transpose: " , view_matrix)
+            # projection = projection_matrix(cameraParameters, view_matrix)  
+            # rendering
+            # obj = objDict[markerReference[0].getPath()]
+            # TODO: controlla lo swapyz
+            # obj = [OBJ("models\low-poly-fox\low-poly-fox.obj", swapyz=True), 100]
             frameOutput = rgbInput
-
-        # decommentare se voglio esaminare un solo frame
-        # isCameraActive = False
-
-        # cv2.imshow('preview', rgbInput)
-        cv2.imshow('preview', frameOutput)
-        key = cv2.waitKey(20)
-        if key == 27: # exit on ESC
-            break
-    
-    cameraVideo.release()
-    cv2.destroyWindow("preview")
+            # frameOutput = renderV2(rgbInput, obj[0], view_matrix, obj[1], color=False)
+            # frame = render(frame, obj[0], projection, markerReference[bestMarker].getImage(), obj[1], True)
+    else:
+        print ("MARKER NON TROVATO")
+        frameOutput = rgbInput
+    # cv2.imshow('preview', frameOutput)
+    # le immagini sono in formato (height, width, channels) (480, 640, 3). opencv legge le immagini in BGR
+    # a noi servono immagini dove width > height, (640, 480, 3), in formato RGB
+    frameOutput = cv2.cvtColor(frameOutput, cv2.COLOR_BGR2RGB)
+    frameOutput = frameOutput.transpose(1, 0, 2)
+    return frameOutput
 
 
 def my_estimatePoseSingleMarkers(corners, marker_size, mtx, distortion):
@@ -237,50 +197,6 @@ def readFromCamera(cameraVideo):
     return isCameraActive, frame
 
 
-def featureMatching(markerReference, sourceImage):
-    """Verifica se (e quale) marker è presente nella scena.
-    Riporta l'indice associato al marker in markerReference
-    se è trovato, -1 se non è presente alcun marker.
-
-    Returns:
-        int
-    """
-
-    # minimo ammontare di matchesAmount perche venga considerato valido
-    # numeri provati: 135, 120, 125, 140, 200, 175
-    MIN_MATCHES = 140
-    # numero di matches piu alti trovati
-    currentBestAmount = 0
-    # indice in markerReference
-    currentBestMarker = -1
-    currentBestMatches, currentBestSourceImagePts = None, None
-    for index, entry in enumerate(markerReference):
-        # sourceImagePts, sourceImageDsc, matches = entry.featureMatching(sourceImage)
-        matches, sourceImagePts = entry.featureMatching(sourceImage)
-        # print ("Path del marker:" , entry.getPath())
-        # print ("Numero di matches:" , len(matches))
-        if len(matches) > MIN_MATCHES and len(matches) > currentBestAmount: 
-            currentBestAmount = len(matches)
-            currentBestMarker = index
-            currentBestMatches = matches
-            currentBestSourceImagePts = sourceImagePts
-        """
-            # OUTPUT DI PROVA
-            # draw first 15 matches.
-            idxPairs = cv2.drawMatches(entry.getImage(), entry.getImagePts(), sourceImage, sourceImagePts, matches[:MIN_MATCHES], 0, flags=2)
-            # show result
-            plt.figure(figsize=(12, 6))
-            plt.axis('off')
-            plt.imshow(idxPairs, cmap='gray')
-            plt.title('Matching between features')
-            plt.show()
-        else:
-            print("Not enough matches have been found - %d/%d" % (len(matches), MIN_MATCHES))
-            matchesMask = None
-        """
-    return currentBestMarker, currentBestSourceImagePts, currentBestMatches
-
-
 def arucoMatching(image, dict, params):
     """detect degli Aruco Marker nella immagine
 
@@ -302,32 +218,86 @@ def arucoMatching(image, dict, params):
             --> se non trovato: (NoneType)
     """
     (corners, ids, rejected) = cv2.aruco.detectMarkers(image, dict, parameters=params)
-
-    # cv2.imshow('preview', image)
-
-    """
-    if (len(corners) > 0):
-        print ("MARKER TROVATO")
-        print ("corners: " , corners)
-        print ("ids: " , ids)
-    else:
-        pass
-        print ("MARKER NON TROVATO")
-        # print ("rejected:" , rejected)
-    """
-
     return corners, ids
 
 
-def applyHomography(marker, sourceImagePts, matches):
-    # Get the good key points positions
-    sourcePoints = np.float32([marker.getImagePts()[m.queryIdx].pt for m in matches]).reshape(-1, 1, 2)
-    destinationPoints = np.float32([sourceImagePts[m.trainIdx].pt for m in matches]).reshape(-1, 1, 2)
+cubeVertices = ((1,1,1),(1,1,-1),(1,-1,-1),(1,-1,1),(-1,1,1),(-1,-1,-1),(-1,-1,1),(-1,1,-1))
+cubeEdges = ((0,1),(0,3),(0,4),(1,2),(1,7),(2,5),(2,3),(3,6),(4,6),(4,7),(5,6),(5,7))
+cubeQuads = ((0,3,6,4),(2,5,6,3),(1,2,5,7),(1,0,4,7),(7,4,6,5),(2,3,0,1))
 
-    # Obtain the homography matrix
-    homography, _ = cv2.findHomography(sourcePoints, destinationPoints, cv2.RANSAC, 5.0)
-    return homography
+def renderSolidCube():
+    glBegin(GL_QUADS)
+    for cubeQuad in cubeQuads:
+        for cubeVertex in cubeQuad:
+            glVertex3fv(cubeVertices[cubeVertex])
+    glEnd()
 
+
+def main():
+
+    # initialize detectRender
+    print ("Inizializzazione in corso...")
+    cameraParameters, _, cameraVideo, arucoDict, arucoParams = initialize()
+    print ("Inizializzazione terminata!")
+
+    pg.init()
+
+    width = 640
+    height = 480
+    displayRes = (width, height)
+    # gameDisplay = pg.display.set_mode(displayRes, DOUBLEBUF|OPENGL)
+    gameDisplay = pg.display.set_mode(displayRes)
+
+    # setta il colore
+    # colorBG = pg.Color(0, 0, 255)
+    # colorBG = (0, 0, 255)
+
+    # set background    
+    background = pg.Surface(displayRes)
+    # background.fill(colorBG)
+    # pg.draw.rect(background,(0,255,255),(20,20,40,40))
+
+    # gluPerspective(60, (displayRes[0]/displayRes[1]), 0.1, 100.0)
+
+    # glTranslatef(0.0, 0.0, -5)
+
+    running = True
+    while running:
+        pg.time.wait(10)
+
+        for event in pg.event.get():
+            if event.type == pg.QUIT:
+                running = False
+                print ("QUIT: closing pygame...")
+            if event.type == pg.KEYDOWN:
+                if event.key == pg.K_ESCAPE:
+                    running = False
+                    print ("Escape: closing pygame...")
+
+        # glRotatef(1, 1, 1, 1)
+        # glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT)
+
+        # otteniamo la immagine di sfondo
+        frame = detectRender(cameraParameters, cameraVideo, arucoDict, arucoParams)
+        """
+        # alternativa 1
+        pg.surfarray.blit_array(background, frame)
+        # bkgr = pg.image.load(frame)
+        # bkgr.convert()
+        gameDisplay.blit(background, (0,0))
+        """
+        # alternativa 2
+        background = pg.surfarray.make_surface(frame)
+        gameDisplay.blit(background, (0,0))
+
+        # render degli oggetti nella scena
+        # renderSolidCube()
+        pg.display.flip()
+
+        print ("rendering in corso...")
+
+    # pg.quit()
+    sys.exit(1) # quit()
 
 if __name__ == '__main__':
     main()
