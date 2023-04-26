@@ -47,7 +47,6 @@ def detectRender(cameraParameters, cameraVideo, arucoDict, arucoParams):
     grayInput = cv2.cvtColor(rgbInput, cv2.COLOR_BGR2GRAY)
     arucoCorners, arucoIds = arucoMatching(grayInput, arucoDict, arucoParams)
     if (len(arucoCorners) > 0):
-        print ("MARKER TROVATO")
         arucoIds = arucoIds.flatten()
         # TODO: gestire caso in cui ci sono piu marker, per ora limitiamoci a 1 solo nella scena
         for (markerCorner, markerID) in zip(arucoCorners, arucoIds):
@@ -143,8 +142,9 @@ def detectRender(cameraParameters, cameraVideo, arucoDict, arucoParams):
             frameOutput = rgbInput
             # frameOutput = renderV2(rgbInput, obj[0], view_matrix, obj[1], color=False)
             # frame = render(frame, obj[0], projection, markerReference[bestMarker].getImage(), obj[1], True)
+            print ("---> MARKER TROVATO")
     else:
-        print ("MARKER NON TROVATO")
+        print ("---> MARKER NON TROVATO")
         frameOutput = rgbInput
     # cv2.imshow('preview', frameOutput)
     return frameOutput
@@ -238,6 +238,7 @@ def main():
     cameraParameters, _, cameraVideo, arucoDict, arucoParams = initialize()
     print ("Inizializzazione terminata!")
     
+    # (0,0) indica l'offset dal top-left angolo della viewbox. con (0,0) non c'è offset
     im_loader = ImageLoader(0, 0)
 
     pg.init()
@@ -250,9 +251,10 @@ def main():
     FLAGS = DOUBLEBUF | OPENGL
     gameDisplay = pg.display.set_mode(displayRes, FLAGS)
 
+    print ("Caricamento modelli in corso...")
     fox = OBJ("models\low-poly-fox\low-poly-fox.obj")
     # tieFighter = OBJ("models\star-wars-vader-tie-fighter-obj\star-wars-vader-tie-fighter.obj")
-    # gameDisplay = pg.display.set_mode(displayRes)
+    print ("Caricamento modelli terminato!")
 
     # setta il colore
     # colorBG = pg.Color(0, 0, 255)
@@ -263,19 +265,17 @@ def main():
     # background.fill(colorBG)
     # pg.draw.rect(background,(0,255,255),(20,20,40,40))
 
-    gluPerspective(45, (displayRes[0]/displayRes[1]), 0.1, 50.0)
+    # gluPerspective(45, (displayRes[0]/displayRes[1]), 0.1, 50.0)
 
     # maggiore il valore, maggiormente viene spostato
     # print("current matrix mode: " , glGetIntegerv(GL_MATRIX_MODE))
     # 5888 = GL_MODELVIEW
 
-    # print ("1. glGetFloatv GL_MODELVIEW_MATRIX:" , glGetFloatv(GL_MODELVIEW_MATRIX))
-    glTranslatef(0.0, -1, -7)
+    print ("1. glGetFloatv GL_MODELVIEW_MATRIX:" , glGetFloatv(GL_MODELVIEW_MATRIX))
+    # print ("2. glGetFloatv GL_MODELVIEW_MATRIX:" , glGetFloatv(GL_MODELVIEW_MATRIX))
+    print ("2. glGetFloatv GL_PROJECTION_MATRIX:" , glGetFloatv(GL_PROJECTION_MATRIX))
 
-    print ("glGetFloatv GL_PROJECTION_MATRIX:" , glGetFloatv(GL_PROJECTION_MATRIX))
-    print ("2. glGetFloatv GL_MODELVIEW_MATRIX:" , glGetFloatv(GL_MODELVIEW_MATRIX))
-
-    # angle = 0
+    firstTime = True
 
     running = True
     while running:
@@ -290,48 +290,61 @@ def main():
             if event.type == pg.KEYDOWN:
                 if event.key == pg.K_ESCAPE:
                     running = False
-                    print ("Escape: closing pygame...")
+                    print ("ESCAPE: closing pygame...")
 
         # ottieni il frame
         frame = detectRender(cameraParameters, cameraVideo, arucoDict, arucoParams)
 
         glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT)
 
-        """
+        # render del background
+        
         # per elementi 2D
         glMatrixMode(GL_PROJECTION)
         glLoadIdentity()
+        print ("3. glGetFloatv GL_PROJECTION_MATRIX:" , glGetFloatv(GL_PROJECTION_MATRIX))
+        # defnisce la 2-D orthographic projection matrix \ viewbox: (left, right, top, bottom) \ (left, right, bottom, top)
+        # no perspective
+        # https://stackoverflow.com/questions/1401326/gluperspective-vs-gluortho2d
         gluOrtho2D(0, width, height, 0)
-
+        print ("4. glGetFloatv GL_PROJECTION_MATRIX:" , glGetFloatv(GL_PROJECTION_MATRIX))
         glMatrixMode(GL_MODELVIEW)
+        glPushMatrix()
         glLoadIdentity()
+        print ("5. glGetFloatv GL_MODELVIEW_MATRIX:" , glGetFloatv(GL_MODELVIEW_MATRIX))
+
         glDisable(GL_DEPTH_TEST)            # non fa controlli per il drawing di pixel nascosti
         im_loader.load(frame)
-        glColor3f(1, 1, 1)
+        glColor3f(1, 1, 1)                  # va tenuto per non avere lo sfondo colorato diversamente
         im_loader.draw()
-        """
+        print ("7. glGetFloatv GL_MODELVIEW_MATRIX:" , glGetFloatv(GL_MODELVIEW_MATRIX))
+        glPopMatrix()
 
-        # reset delle matrici 
+        # render del modello
         glMatrixMode(GL_PROJECTION)
         glLoadIdentity()
-        # gluPerspective(45, (displayRes[0]/displayRes[1]), 0.1, 50.0)
+        # vedi il link sopra
+        gluPerspective(45, (displayRes[0]/displayRes[1]), 0.1, 50.0)
+        print ("8. glGetFloatv GL_PROJECTION_MATRIX:" , glGetFloatv(GL_PROJECTION_MATRIX))
         glMatrixMode(GL_MODELVIEW)
-        print ("3. glGetFloatv GL_MODELVIEW_MATRIX:" , glGetFloatv(GL_MODELVIEW_MATRIX))
-        # glLoadIdentity()
-        # glTranslate(0.0, 0.0, -5)
-        # glRotate(angle, 0, 1, 0)          # gira sempre piu velocemente
-        # angle += 1
-        # glTranslate(0.0, 0.0, -0.05)
+        print ("9. glGetFloatv GL_MODELVIEW_MATRIX:" , glGetFloatv(GL_MODELVIEW_MATRIX))
         glRotatef(1, 0, 1, 0)
-        print ("4. glGetFloatv GL_MODELVIEW_MATRIX POST ROTATE:" , glGetFloatv(GL_MODELVIEW_MATRIX))
+        print ("10. glGetFloatv GL_MODELVIEW_MATRIX:" , glGetFloatv(GL_MODELVIEW_MATRIX))
 
-        # glRotatef(1, 1, 1, 1)
+        # voglio effettuare la traslazione SOLO LA PRIMA VOLTA, non ad ogni frame
+        if firstTime:
+            glTranslatef(0.0, -1, -7)             # per la fox
+            # glTranslatef(0.0, -10, -50)               # per il tie-fighter
+            print ("11. glGetFloatv GL_MODELVIEW_MATRIX:" , glGetFloatv(GL_MODELVIEW_MATRIX))
+            firstTime = False
 
-        # rendering effettivo
+        # rendering del modello
         glEnable(GL_DEPTH_TEST)
         fox.render()
         # tieFighter.render()
         # renderSolidCube()
+        """
+        """
 
         # usiamo il buffer corretto
         pg.display.flip()

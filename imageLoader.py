@@ -36,8 +36,9 @@ class ImageLoader:
         glMatrixMode(GL_MODELVIEW)
         glLoadIdentity()
         glTranslate(self.x, self.y, 0)
-        
-        glEnable(GL_TEXTURE_2D)  
+        print ("6. glGetFloatv GL_MODELVIEW_MATRIX:" , glGetFloatv(GL_MODELVIEW_MATRIX))
+
+        glEnable(GL_TEXTURE_2D)
         glBegin(GL_QUADS)
         glTexCoord2f(0, 0)
         glVertex2f(0, 0)
