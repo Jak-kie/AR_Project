@@ -11,6 +11,7 @@ TODO l'approccio che cerchiamo deve permettere le seguenti features:
 # import moduli esterni
 import cv2
 import numpy as np
+import glob
 
 # import moduli custom
 from renderer import projection_matrix, render, renderV2
@@ -42,7 +43,7 @@ INVERSE_MATRIX = np.array([[ 1.0, 1.0, 1.0, 1.0],
                         [-1.0,-1.0,-1.0,-1.0],
                         [ 1.0, 1.0, 1.0, 1.0]])
 
-# per capire se la camera è calibrata. all'inizio/quando cambiamo lo zoom è False, è True quando è calibrata
+# per capire se la camera è calibrata. all'inizio e/o quando cambiamo lo zoom è False, è True negli altri casi
 # e quindi cameraMatrix e distCoeff sono corretti
 # INVERSE_MATRIX è giusto per assegnare qualche valore, non è essenziale
 isCameraCalibrated = False
@@ -111,6 +112,7 @@ def detect(cameraVideo, arucoDict, arucoParams):
                 isCameraCalibrated = True
             print ("cameraMatrix: " , cameraMatrix)
             print ("distCoeff: " , distCoeff)
+
             # rotVecs, transVecs = estimatePoseSingleMarkers(floatCorners, markerLength, cameraMatrix, distCoeff)
             rotVecs, transVecs = estimatePoseSingleMarkers(floatCorners, markerLength)
             print ("rotVecs: " , rotVecs)
@@ -128,9 +130,9 @@ def detect(cameraVideo, arucoDict, arucoParams):
                                     [R[2,0],R[2,1],R[2,2],T[2]],
                                     [ 0.0,   0.0,   0.0,   1.0]],
                                     np.float32)
-            print ("view_matrix: " , view_matrix)               # camera transformation matrix
+            # print ("view_matrix: " , view_matrix)               # camera transformation matrix
             view_matrix = view_matrix * INVERSE_MATRIX
-            print ("view_matrix * INVERSE_MATRIX: " , view_matrix)
+            # print ("view_matrix * INVERSE_MATRIX: " , view_matrix)
             view_matrix = np.transpose(view_matrix)
             print ("view_matrix transpose: " , view_matrix)
             frameOutput = rgbInput
@@ -158,13 +160,61 @@ def estimateCameraParameters(corners, marker_size):
                               [-marker_size / 2, -marker_size / 2, 0]], dtype=np.float32)
     
     # _ , cameraMatrix, distCoeff, rotVecs, transVecs = cv2.calibrateCamera(marker_points, corners, marker_size)
-    # _ , cameraMatrix, distCoeff, _ , _ = cv2.calibrateCamera(marker_points, corners, marker_size)
+
+    # size = (640, 480)
+
+    # CAMERA CALIBRATION
+    # https://docs.opencv.org/4.6.0/dc/dbb/tutorial_py_calibration.html
+    # termination criteria
+    # criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
+    # prepare object points, like (0,0,0), (1,0,0), (2,0,0) ....,(6,5,0)
+    objp = np.zeros((6*7,3), np.float32)
+    # print ("objp: " , objp)
+    objp[:,:2] = np.mgrid[0:7,0:6].T.reshape(-1,2)
+    # print ("objp: " , objp)
+
+    objpoints = [] # 3d point in real world space
+    imgpoints = [] # 2d points in image plane.    
+
+    images = glob.glob('pictures\calibrateCamera\*.jpg')
+
+    for fname in images:
+        img = cv2.imread(fname)
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+        # Find the chess board corners
+        ret, corners = cv2.findChessboardCorners(gray, (7,6), None)
+        # If found, add object points, image points (after refining them)
+        if ret == True:
+            objpoints.append(objp)
+            # corners2 = cv2.cornerSubPix(gray,corners, (11,11), (-1,-1), criteria)
+            imgpoints.append(corners)
+            # Draw and display the corners
+            # cv2.drawChessboardCorners(img, (7,6), corners2, ret)
+            # cv2.imshow('img', img)
+            # cv2.waitKey(500)
+        # cv2.destroyAllWindows()
+
+    _ , cameraMatrix, distCoeff, _ , _ = cv2.calibrateCamera(objpoints, imgpoints, gray.shape[::-1], None, None)
 
     # DEBUG TEMPORANEO
-    cameraMatrix = np.array([[800, 0, 320], [0, 800, 100], [0, 0, 1]])
-    cameraMatrix = cameraMatrix.astype(float)                 # conversione necessaria per cv2.drawFrameAxes
-    distCoeff = np.zeros((4,1))
+    # cameraMatrix = np.array([[800, 0, 320], [0, 800, 100], [0, 0, 1]])
+    # cameraMatrix = np.array([[1000, 0, 320], [0, 1000, 240], [0, 0, 1]])
+    # cameraMatrix = np.array([[800, 0, 320], [0, 800, 240], [0, 0, 1]])
     # distCoeff = np.array([0, 0.5, 1.0, 1.0])
+    
+
+    # cameraMatrix = np.array([[100, 0, 30], [0, 100, 30], [0, 0, 1]])
+    # cameraMatrix = cameraMatrix.astype(float)                 # conversione necessaria per cv2.drawFrameAxes
+    # distCoeff = np.zeros((4,1))
+    
+
+    # print("marker_size type: " , type(marker_size))
+    # size = cv2.Size(marker_size, marker_size)
+    # print("size: " , size)
+    # size = (1, 1)
+    # _ , cameraMatrix, distCoeff, _ , _ = cv2.calibrateCamera(marker_points, corners, size, None, None)
+    # _ , cameraMatrix, distCoeff, _ , _ = cv2.calibrateCamera(marker_points, corners, size, cameraMatrix, distCoeff)
 
     # return cameraMatrix, distCoeff
 
@@ -340,6 +390,12 @@ def main():
             # glMultMatrixd(view_matrix)
             # print ("9. glGetFloatv GL_MODELVIEW_MATRIX:" , glGetFloatv(GL_MODELVIEW_MATRIX))
             glLoadMatrixd(view_matrix)
+            print ("10. glGetFloatv GL_MODELVIEW_MATRIX:" , glGetFloatv(GL_MODELVIEW_MATRIX))
+            # scaling (N.B. potrebbe essere valido solo per alcuni modelli, potremmo doverlo settare diversamente per ciascuno)
+            scalingScale = 0.05
+            glScalef(scalingScale, scalingScale, scalingScale)
+            glRotatef(90, 1, 0, 0)
+            print ("11. glGetFloatv GL_MODELVIEW_MATRIX:" , glGetFloatv(GL_MODELVIEW_MATRIX))
             # print ("type: " , type(rotVecs))
             # np.append(rotVecs, 0)
             # np.append(transVecs, 0)
@@ -352,7 +408,7 @@ def main():
             # glRotatef(rotVecs)
             # glTranslatef(transVecs)
             # glRotatef(1, 0, 1, 0)
-            print ("10. glGetFloatv GL_MODELVIEW_MATRIX:" , glGetFloatv(GL_MODELVIEW_MATRIX))
+            # print ("10. glGetFloatv GL_MODELVIEW_MATRIX:" , glGetFloatv(GL_MODELVIEW_MATRIX))
 
             # voglio effettuare la traslazione SOLO LA PRIMA VOLTA, non ad ogni frame
             if firstTime:
@@ -363,6 +419,7 @@ def main():
 
             # rendering del modello
             glEnable(GL_DEPTH_TEST)
+            # glEnable(GL_DEPTH_TEST | GL_NORMALIZE)
             fox.render()
             # necron.render()
             # tieFighter.render()
