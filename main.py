@@ -36,14 +36,36 @@ from OpenGL.GL import *
 from OpenGL.GLU import *
 
 
-def detectRender(cameraParameters, cameraVideo, arucoDict, arucoParams):
+# costanti globali
+INVERSE_MATRIX = np.array([[ 1.0, 1.0, 1.0, 1.0],
+                        [-1.0,-1.0,-1.0,-1.0],
+                        [-1.0,-1.0,-1.0,-1.0],
+                        [ 1.0, 1.0, 1.0, 1.0]])
+
+# per capire se la camera è calibrata. all'inizio/quando cambiamo lo zoom è False, è True quando è calibrata
+# e quindi cameraMatrix e distCoeff sono corretti
+# INVERSE_MATRIX è giusto per assegnare qualche valore, non è essenziale
+isCameraCalibrated = False
+cameraMatrix = INVERSE_MATRIX
+distCoeff = INVERSE_MATRIX
+
+
+# def detect(cameraMatrix, cameraVideo, arucoDict, arucoParams):
+def detect(cameraVideo, arucoDict, arucoParams):
+    global INVERSE_MATRIX
+    global cameraMatrix
+    global distCoeff
+    global isCameraCalibrated
+
+    """
     if cameraVideo.isOpened(): # try to get the first frame
         isCameraActive, _ = cameraVideo.read()
     else:
         isCameraActive = False
         sys.exit()
+    """
     # Lettura del frame dalla camera
-    isCameraActive, rgbInput = readFromCamera(cameraVideo)
+    rgbInput = readFromCamera(cameraVideo)
     grayInput = cv2.cvtColor(rgbInput, cv2.COLOR_BGR2GRAY)
     arucoCorners, arucoIds = arucoMatching(grayInput, arucoDict, arucoParams)
     if (len(arucoCorners) > 0):
@@ -57,30 +79,15 @@ def detectRender(cameraParameters, cameraVideo, arucoDict, arucoParams):
                     |
                     V
             BL <-- BR
-            esempio di print:
-            markerCorner:  [[[215. 107.]
-                [388.  83.]
-                [397. 273.]
-                [218. 282.]]]
-            # pre int 
-            topLeft:  [215. 107.]
-            topRight:  [388.  83.]
-            bottomRight:  [397. 273.]
-            bottomLeft:  [218. 282.]
-            # post int
-            topLeft:  (215, 107)
-            topRight:  (388, 83)
-            bottomRight:  (397, 273)
-            bottomLeft:  (218, 282)
             """
             # posizioni 2D degli angoli dei marker
             floatCorners = (topLeft, topRight, bottomRight, bottomLeft) = markerCorner.reshape((4, 2))
-            
+
+            # testing per verificare come bene rileva il marker
             topLeft = (int(topLeft[0]), int(topLeft[1]))
             topRight = (int(topRight[0]), int(topRight[1]))
             bottomRight = (int(bottomRight[0]), int(bottomRight[1]))
             bottomLeft = (int(bottomLeft[0]), int(bottomLeft[1]))
-            # testing per verificare come bene rileva il marker
             # disegniamo la linea che delimita il marker
             cv2.line(rgbInput, topLeft, topRight, (0, 255, 0), 2)
             cv2.line(rgbInput, topRight, bottomRight, (0, 255, 0), 2)
@@ -90,36 +97,28 @@ def detectRender(cameraParameters, cameraVideo, arucoDict, arucoParams):
             cX = int((topLeft[0] + bottomRight[0]) / 2.0)
             cY = int((topLeft[1] + bottomRight[1]) / 2.0)
             cv2.circle(rgbInput, (cX, cY), 4, (0, 0, 255), -1)
-      
             # draw the ArUco marker ID on the frame
             cv2.putText(rgbInput, str(markerID), (topRight[0], topRight[1] - 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-            # Pose Estimation
-            # objp = np.array([[0.,0.,0.],[1.,0.,0.], [1.,1.,0.],[0.,1.,0.]], dtype='float32')
-            dist = np.zeros((4,1))          # temporaneo
+
+
+            # Pose Estimation and Camera calibration
             markerLength = 0.10
-            rotVecs, transVecs = my_estimatePoseSingleMarkers(floatCorners, markerLength, cameraParameters, dist)
+            # objp = np.array([[0.,0.,0.],[1.,0.,0.], [1.,1.,0.],[0.,1.,0.]], dtype='float32')
+            # distCoeff = np.zeros((4,1))          # temporaneo
+            # distCoeff = np.array([0, 0.5, 1.0, 1.0])
+            if not isCameraCalibrated:
+                estimateCameraParameters(floatCorners, markerLength)
+                isCameraCalibrated = True
+            print ("cameraMatrix: " , cameraMatrix)
+            print ("distCoeff: " , distCoeff)
+            # rotVecs, transVecs = estimatePoseSingleMarkers(floatCorners, markerLength, cameraMatrix, distCoeff)
+            rotVecs, transVecs = estimatePoseSingleMarkers(floatCorners, markerLength)
+            print ("rotVecs: " , rotVecs)
+            print ("transVecs: " , transVecs)
             # get homography matrix
-            K = cameraParameters
-            D = dist
             R = cv2.Rodrigues(rotVecs)[0]
             T = transVecs
-            """
-            print ("K: " , K)
-            print ("D: " , D)
-            print ("R: " , R)
-            print ("T: " , T)
-            """
-            # debug
-            """
-            R2 = cv2.Rodrigues(rotVecs)
-            R3 = cv2.Rodrigues(rotVecs)[1]
-            print ("R2: " , R2)
-            print ("R3: " , R3)
-            """
-            INVERSE_MATRIX = np.array([[ 1.0, 1.0, 1.0, 1.0],
-                                    [-1.0,-1.0,-1.0,-1.0],
-                                    [-1.0,-1.0,-1.0,-1.0],
-                                    [ 1.0, 1.0, 1.0, 1.0]])
+
             """view_matrix = np.array([[R[0,0],R[0,1],R[0,2],T[0]],
                 [R[1,0],R[1,1],R[1,2],T[1]],
                 [R[2,0],R[2,1],R[2,2],T[2]],
@@ -127,39 +126,61 @@ def detectRender(cameraParameters, cameraVideo, arucoDict, arucoParams):
             view_matrix = np.array([[R[0,0],R[0,1],R[0,2],T[0]],
                                     [R[1,0],R[1,1],R[1,2],T[1]],
                                     [R[2,0],R[2,1],R[2,2],T[2]],
-                                    [  0.0,   0.0,   0.0,   1.0]],
+                                    [ 0.0,   0.0,   0.0,   1.0]],
                                     np.float32)
-            # print ("view_matrix: " , view_matrix)               # camera transformation matrix
+            print ("view_matrix: " , view_matrix)               # camera transformation matrix
             view_matrix = view_matrix * INVERSE_MATRIX
-            # print ("view_matrix * INVERSE_MATRIX: " , view_matrix)
+            print ("view_matrix * INVERSE_MATRIX: " , view_matrix)
             view_matrix = np.transpose(view_matrix)
-            # print ("view_matrix transpose: " , view_matrix)
-            # projection = projection_matrix(cameraParameters, view_matrix)  
-            # rendering
-            # obj = objDict[markerReference[0].getPath()]
-            # TODO: controlla lo swapyz
-            # obj = [OBJ("models\low-poly-fox\low-poly-fox.obj", swapyz=True), 100]
+            print ("view_matrix transpose: " , view_matrix)
             frameOutput = rgbInput
-            # frameOutput = renderV2(rgbInput, obj[0], view_matrix, obj[1], color=False)
-            # frame = render(frame, obj[0], projection, markerReference[bestMarker].getImage(), obj[1], True)
             print ("---> MARKER TROVATO")
+            return frameOutput, view_matrix, True
+            return frameOutput, rotVecs, transVecs, True
     else:
         print ("---> MARKER NON TROVATO")
         frameOutput = rgbInput
+        # ritornamo INVERSE_MATRIX, anche se in realta non verrà usato, giusto per tornare qualcosa
+        return frameOutput, INVERSE_MATRIX, False
+        return frameOutput, INVERSE_MATRIX, INVERSE_MATRIX, False
     # cv2.imshow('preview', frameOutput)
-    return frameOutput
 
 
-def my_estimatePoseSingleMarkers(corners, marker_size, mtx, distortion):
+# questa funzione va chiamata quando: prima volta che troviamo il marker/risettiamo zoom della camera
+# anche se puo ritornare rotVecs e transVecs, limitiamoci ai parametri intrinsechi e passiamoli a solvePnp dopo
+def estimateCameraParameters(corners, marker_size):
+    global cameraMatrix
+    global distCoeff
+
+    marker_points = np.array([[-marker_size / 2, marker_size / 2, 0],
+                              [marker_size / 2, marker_size / 2, 0],
+                              [marker_size / 2, -marker_size / 2, 0],
+                              [-marker_size / 2, -marker_size / 2, 0]], dtype=np.float32)
+    
+    # _ , cameraMatrix, distCoeff, rotVecs, transVecs = cv2.calibrateCamera(marker_points, corners, marker_size)
+    # _ , cameraMatrix, distCoeff, _ , _ = cv2.calibrateCamera(marker_points, corners, marker_size)
+
+    # DEBUG TEMPORANEO
+    cameraMatrix = np.array([[800, 0, 320], [0, 800, 100], [0, 0, 1]])
+    cameraMatrix = cameraMatrix.astype(float)                 # conversione necessaria per cv2.drawFrameAxes
+    distCoeff = np.zeros((4,1))
+    # distCoeff = np.array([0, 0.5, 1.0, 1.0])
+
+    # return cameraMatrix, distCoeff
+
+
+def estimatePoseSingleMarkers(corners, marker_size):
     '''
     This will estimate the rvec and tvec for each of the marker corners detected by:
        corners, ids, rejectedImgPoints = detector.detectMarkers(image)
     corners - is an array of detected corners for each detected marker in the image
     marker_size - is the size of the detected markers
-    mtx - is the camera matrix
-    distortion - is the camera distortion matrix
+    cameraMatrix - is the camera matrix
+    distCoeff - is the camera distortion matrix
     RETURN list of rvecs, tvecs, and trash (so that it corresponds to the old estimatePoseSingleMarkers())
     '''
+    global cameraMatrix
+    global distCoeff
     marker_points = np.array([[-marker_size / 2, marker_size / 2, 0],
                               [marker_size / 2, marker_size / 2, 0],
                               [marker_size / 2, -marker_size / 2, 0],
@@ -170,13 +191,13 @@ def my_estimatePoseSingleMarkers(corners, marker_size, mtx, distortion):
     tvecs = []
     i = 0
     for c in corners:
-        nada, R, t = cv2.solvePnP(marker_points, corners[i], mtx, distortion, False, cv2.SOLVEPNP_IPPE_SQUARE)
+        nada, R, t = cv2.solvePnP(marker_points, corners[i], cameraMatrix, distCoeff, False, cv2.SOLVEPNP_IPPE_SQUARE)
         rvecs.append(R)
         tvecs.append(t)
         trash.append(nada)
     return rvecs, tvecs
     """
-    _, rotVecs, transVecs = cv2.solvePnP(marker_points, corners, mtx, distortion, False, cv2.SOLVEPNP_IPPE_SQUARE)
+    _, rotVecs, transVecs = cv2.solvePnP(marker_points, corners, cameraMatrix, distCoeff, False, cv2.SOLVEPNP_IPPE_SQUARE)
     return rotVecs, transVecs
 
 
@@ -188,11 +209,11 @@ def readFromCamera(cameraVideo):
         ndarray -- immagine presa dalla camera
     """
 
-    isCameraActive, frame = cameraVideo.read()
+    _, frame = cameraVideo.read()
     # frame = cv2.imread("pictures\\arucoMarker_5x5.jpg")
     # print (frame.shape)
     # print (frame)
-    return isCameraActive, frame
+    return frame
 
 
 def arucoMatching(image, dict, params):
@@ -209,7 +230,6 @@ def arucoMatching(image, dict, params):
     # image = cv2.GaussianBlur(image, (5,5), 0)
     # edges = cv2.Canny(gray, 100, 200)
 
-    # detection con aruco
     """
         corners (tuple)
         ids --> se trovato: (numpy.ndarray)
@@ -219,6 +239,7 @@ def arucoMatching(image, dict, params):
     return corners, ids
 
 
+"""
 cubeVertices = ((1,1,1),(1,1,-1),(1,-1,-1),(1,-1,1),(-1,1,1),(-1,-1,-1),(-1,-1,1),(-1,1,-1))
 cubeEdges = ((0,1),(0,3),(0,4),(1,2),(1,7),(2,5),(2,3),(3,6),(4,6),(4,7),(5,6),(5,7))
 cubeQuads = ((0,3,6,4),(2,5,6,3),(1,2,5,7),(1,0,4,7),(7,4,6,5),(2,3,0,1))
@@ -229,54 +250,39 @@ def renderSolidCube():
         for cubeVertex in cubeQuad:
             glVertex3fv(cubeVertices[cubeVertex])
     glEnd()
+"""
 
 
 def main():
-
-    # initialize detectRender
+    # Inizializzazione
     print ("Inizializzazione in corso...")
-    cameraParameters, _, cameraVideo, arucoDict, arucoParams = initialize()
-    print ("Inizializzazione terminata!")
-    
+    _ , cameraVideo, arucoDict, arucoParams = initialize()
+
     # (0,0) indica l'offset dal top-left angolo della viewbox. con (0,0) non c'è offset
     im_loader = ImageLoader(0, 0)
 
+    # Inizializzazione pygame
     pg.init()
-
     pgClock = pg.time.Clock()
-
     width = 640
     height = 480
     displayRes = (width, height)
     FLAGS = DOUBLEBUF | OPENGL
     gameDisplay = pg.display.set_mode(displayRes, FLAGS)
 
-    print ("Caricamento modelli in corso...")
+    # Inizializzazione modelli
+    print ("---> Caricamento modelli in corso...")
     fox = OBJ("models\low-poly-fox\low-poly-fox.obj")
+    # necron = OBJ("models\\necron-warrior\\source\\necron_warrior.obj")
     # tieFighter = OBJ("models\star-wars-vader-tie-fighter-obj\star-wars-vader-tie-fighter.obj")
-    print ("Caricamento modelli terminato!")
+    print ("---> Caricamento modelli terminato!")
 
-    # setta il colore
-    # colorBG = pg.Color(0, 0, 255)
-    # colorBG = (0, 0, 255)
-
-    # set background
-    # background = pg.Surface(displayRes)
-    # background.fill(colorBG)
-    # pg.draw.rect(background,(0,255,255),(20,20,40,40))
-
-    # gluPerspective(45, (displayRes[0]/displayRes[1]), 0.1, 50.0)
-
-    # maggiore il valore, maggiormente viene spostato
-    # print("current matrix mode: " , glGetIntegerv(GL_MATRIX_MODE))
-    # 5888 = GL_MODELVIEW
+    print ("Inizializzazione terminata!")
 
     print ("1. glGetFloatv GL_MODELVIEW_MATRIX:" , glGetFloatv(GL_MODELVIEW_MATRIX))
-    # print ("2. glGetFloatv GL_MODELVIEW_MATRIX:" , glGetFloatv(GL_MODELVIEW_MATRIX))
     print ("2. glGetFloatv GL_PROJECTION_MATRIX:" , glGetFloatv(GL_PROJECTION_MATRIX))
 
     firstTime = True
-
     running = True
     while running:
         # pg.time.wait(10)
@@ -292,13 +298,14 @@ def main():
                     running = False
                     print ("ESCAPE: closing pygame...")
 
-        # ottieni il frame
-        frame = detectRender(cameraParameters, cameraVideo, arucoDict, arucoParams)
-
         glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT)
 
+        # ottieni il frame
+        # frame, view_matrix, retval = detect(cameraMatrix, cameraVideo, arucoDict, arucoParams)
+        frame, view_matrix, retval = detect(cameraVideo, arucoDict, arucoParams)
+        # frame, rotVecs, transVecs, retValue = detect(cameraMatrix, cameraVideo, arucoDict, arucoParams)
+
         # render del background
-        
         # per elementi 2D
         glMatrixMode(GL_PROJECTION)
         glLoadIdentity()
@@ -309,7 +316,7 @@ def main():
         gluOrtho2D(0, width, height, 0)
         print ("4. glGetFloatv GL_PROJECTION_MATRIX:" , glGetFloatv(GL_PROJECTION_MATRIX))
         glMatrixMode(GL_MODELVIEW)
-        glPushMatrix()
+        # glPushMatrix()
         glLoadIdentity()
         print ("5. glGetFloatv GL_MODELVIEW_MATRIX:" , glGetFloatv(GL_MODELVIEW_MATRIX))
 
@@ -318,66 +325,65 @@ def main():
         glColor3f(1, 1, 1)                  # va tenuto per non avere lo sfondo colorato diversamente
         im_loader.draw()
         print ("7. glGetFloatv GL_MODELVIEW_MATRIX:" , glGetFloatv(GL_MODELVIEW_MATRIX))
-        glPopMatrix()
+        # glPopMatrix()
 
-        # render del modello
-        glMatrixMode(GL_PROJECTION)
-        glLoadIdentity()
-        # vedi il link sopra
-        gluPerspective(45, (displayRes[0]/displayRes[1]), 0.1, 50.0)
-        print ("8. glGetFloatv GL_PROJECTION_MATRIX:" , glGetFloatv(GL_PROJECTION_MATRIX))
-        glMatrixMode(GL_MODELVIEW)
-        print ("9. glGetFloatv GL_MODELVIEW_MATRIX:" , glGetFloatv(GL_MODELVIEW_MATRIX))
-        glRotatef(1, 0, 1, 0)
-        print ("10. glGetFloatv GL_MODELVIEW_MATRIX:" , glGetFloatv(GL_MODELVIEW_MATRIX))
+        if retval:
+            # render del modello
+            glMatrixMode(GL_PROJECTION)
+            glLoadIdentity()
+            # vedi il link sopra
+            gluPerspective(90, (displayRes[0]/displayRes[1]), 0.1, 50.0)
+            print ("8. glGetFloatv GL_PROJECTION_MATRIX:" , glGetFloatv(GL_PROJECTION_MATRIX))
+            glMatrixMode(GL_MODELVIEW)
+            # !!!!!! FARE glLoadIdentity() + glMultMatrixd(a) == glLoadMatrixd(a)
+            # glLoadIdentity()
+            # glMultMatrixd(view_matrix)
+            # print ("9. glGetFloatv GL_MODELVIEW_MATRIX:" , glGetFloatv(GL_MODELVIEW_MATRIX))
+            glLoadMatrixd(view_matrix)
+            # print ("type: " , type(rotVecs))
+            # np.append(rotVecs, 0)
+            # np.append(transVecs, 0)
+            # rotVecs.append(0)
+            # transVecs.append(0)
+            # print ("rotVecs:" , rotVecs)
+            # print ("transVecs:" , transVecs)
+            # glRotatef(1 , rotVecs[0], rotVecs[1], rotVecs[2])
+            # glTranslatef(transVecs[0], transVecs[1], transVecs[2])
+            # glRotatef(rotVecs)
+            # glTranslatef(transVecs)
+            # glRotatef(1, 0, 1, 0)
+            print ("10. glGetFloatv GL_MODELVIEW_MATRIX:" , glGetFloatv(GL_MODELVIEW_MATRIX))
 
-        # voglio effettuare la traslazione SOLO LA PRIMA VOLTA, non ad ogni frame
-        if firstTime:
-            glTranslatef(0.0, -1, -7)             # per la fox
-            # glTranslatef(0.0, -10, -50)               # per il tie-fighter
-            print ("11. glGetFloatv GL_MODELVIEW_MATRIX:" , glGetFloatv(GL_MODELVIEW_MATRIX))
-            firstTime = False
+            # voglio effettuare la traslazione SOLO LA PRIMA VOLTA, non ad ogni frame
+            if firstTime:
+                # glTranslatef(0.0, -1, -7)                   # per la fox
+                # glTranslatef(0.0, -10, -50)               # per il tie-fighter
+                # print ("11. glGetFloatv GL_MODELVIEW_MATRIX:" , glGetFloatv(GL_MODELVIEW_MATRIX))
+                firstTime = False
 
-        # rendering del modello
-        glEnable(GL_DEPTH_TEST)
-        fox.render()
-        # tieFighter.render()
-        # renderSolidCube()
-        """
-        """
+            # rendering del modello
+            glEnable(GL_DEPTH_TEST)
+            fox.render()
+            # necron.render()
+            # tieFighter.render()
+            # renderSolidCube()
 
-        # usiamo il buffer corretto
+        # switch del buffer
         pg.display.flip()
 
-        """
-        # alternativa 1
-        pg.surfarray.blit_array(background, frame)
-        # bkgr = pg.image.load(frame)
-        # bkgr.convert()
-        gameDisplay.blit(background, (0,0))
-        """
-        # alternativa 2
-        # background = pg.surfarray.make_surface(frame)
-        # gameDisplay.blit(background, (0,0))
+        # print ("rendering in corso...")
 
-        # render degli oggetti nella scena
-        # renderSolidCube()
-
-        # pg.display.flip()
-
-        print ("rendering in corso...")
-
-    # pg.quit()
-    print ("rendering terminato")
+    print ("Rendering terminato.")
     sys.exit(1) # quit()
 
 
+"""
 # questa versione NON usa OpenGL
 def main_OLD():
 
     # initialize detectRender
     print ("Inizializzazione in corso...")
-    cameraParameters, _, cameraVideo, arucoDict, arucoParams = initialize()
+    cameraMatrix, _, cameraVideo, arucoDict, arucoParams = initialize()
     print ("Inizializzazione terminata!")
 
     pg.init()
@@ -423,18 +429,16 @@ def main_OLD():
         # glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT)
 
         # otteniamo la immagine di sfondo
-        frame = detectRender(cameraParameters, cameraVideo, arucoDict, arucoParams)
+        frame = detectRender(cameraMatrix, cameraVideo, arucoDict, arucoParams)
         # le immagini sono in formato (height, width, channels) (480, 640, 3). opencv legge le immagini in BGR
         # a noi servono immagini dove width > height, (640, 480, 3), in formato RGB
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         frame = frame.transpose(1, 0, 2)
-        """
         # alternativa 1
-        pg.surfarray.blit_array(background, frame)
+        # pg.surfarray.blit_array(background, frame)
         # bkgr = pg.image.load(frame)
         # bkgr.convert()
-        gameDisplay.blit(background, (0,0))
-        """
+        # gameDisplay.blit(background, (0,0))
         # alternativa 2
         background = pg.surfarray.make_surface(frame)
         gameDisplay.blit(background, (0,0))
@@ -448,6 +452,7 @@ def main_OLD():
 
     # pg.quit()
     sys.exit(1) # quit()
+"""
 
 
 if __name__ == '__main__':
