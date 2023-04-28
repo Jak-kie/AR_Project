@@ -1,4 +1,4 @@
-# sviluppo tramite ArucoMarkers integrato con OpenGL
+# sviluppo tramite ArucoMarkers integrato con OpenGL e PyGame
 """
 TODO l'approccio che cerchiamo deve permettere le seguenti features:
     - caricamento modello con texture
@@ -137,13 +137,13 @@ def detect(cameraVideo, arucoDict, arucoParams):
             print ("view_matrix transpose: " , view_matrix)
             frameOutput = rgbInput
             print ("---> MARKER TROVATO")
-            return frameOutput, view_matrix, True
+            return frameOutput, view_matrix, True, arucoIds[0]
             return frameOutput, rotVecs, transVecs, True
     else:
         print ("---> MARKER NON TROVATO")
         frameOutput = rgbInput
         # ritornamo INVERSE_MATRIX, anche se in realta non verrà usato, giusto per tornare qualcosa
-        return frameOutput, INVERSE_MATRIX, False
+        return frameOutput, INVERSE_MATRIX, False, -1
         return frameOutput, INVERSE_MATRIX, INVERSE_MATRIX, False
     # cv2.imshow('preview', frameOutput)
 
@@ -159,19 +159,13 @@ def estimateCameraParameters(corners, marker_size):
                               [marker_size / 2, -marker_size / 2, 0],
                               [-marker_size / 2, -marker_size / 2, 0]], dtype=np.float32)
     
-    # _ , cameraMatrix, distCoeff, rotVecs, transVecs = cv2.calibrateCamera(marker_points, corners, marker_size)
-
-    # size = (640, 480)
-
     # CAMERA CALIBRATION
     # https://docs.opencv.org/4.6.0/dc/dbb/tutorial_py_calibration.html
     # termination criteria
     # criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
     # prepare object points, like (0,0,0), (1,0,0), (2,0,0) ....,(6,5,0)
     objp = np.zeros((6*7,3), np.float32)
-    # print ("objp: " , objp)
     objp[:,:2] = np.mgrid[0:7,0:6].T.reshape(-1,2)
-    # print ("objp: " , objp)
 
     objpoints = [] # 3d point in real world space
     imgpoints = [] # 2d points in image plane.    
@@ -203,11 +197,9 @@ def estimateCameraParameters(corners, marker_size):
     # cameraMatrix = np.array([[800, 0, 320], [0, 800, 240], [0, 0, 1]])
     # distCoeff = np.array([0, 0.5, 1.0, 1.0])
     
-
     # cameraMatrix = np.array([[100, 0, 30], [0, 100, 30], [0, 0, 1]])
     # cameraMatrix = cameraMatrix.astype(float)                 # conversione necessaria per cv2.drawFrameAxes
     # distCoeff = np.zeros((4,1))
-    
 
     # print("marker_size type: " , type(marker_size))
     # size = cv2.Size(marker_size, marker_size)
@@ -306,7 +298,6 @@ def renderSolidCube():
 def main():
     # Inizializzazione
     print ("Inizializzazione in corso...")
-    _ , cameraVideo, arucoDict, arucoParams = initialize()
 
     # (0,0) indica l'offset dal top-left angolo della viewbox. con (0,0) non c'è offset
     im_loader = ImageLoader(0, 0)
@@ -320,19 +311,22 @@ def main():
     FLAGS = DOUBLEBUF | OPENGL
     gameDisplay = pg.display.set_mode(displayRes, FLAGS)
 
+    # Inizializzazione parametri + dizionario modelli
+    objDict , cameraVideo, arucoDict, arucoParams = initialize()
+
     # Inizializzazione modelli
-    print ("---> Caricamento modelli in corso...")
-    fox = OBJ("models\low-poly-fox\low-poly-fox.obj")
+    # print ("---> Caricamento modelli in corso...")
+    # fox = OBJ("models\low-poly-fox\low-poly-fox.obj")
     # necron = OBJ("models\\necron-warrior\\source\\necron_warrior.obj")
     # tieFighter = OBJ("models\star-wars-vader-tie-fighter-obj\star-wars-vader-tie-fighter.obj")
-    print ("---> Caricamento modelli terminato!")
+    # print ("---> Caricamento modelli terminato!")
 
     print ("Inizializzazione terminata!")
 
     print ("1. glGetFloatv GL_MODELVIEW_MATRIX:" , glGetFloatv(GL_MODELVIEW_MATRIX))
     print ("2. glGetFloatv GL_PROJECTION_MATRIX:" , glGetFloatv(GL_PROJECTION_MATRIX))
 
-    firstTime = True
+    # firstTime = True
     running = True
     while running:
         # pg.time.wait(10)
@@ -343,7 +337,7 @@ def main():
             if event.type == pg.QUIT:
                 running = False
                 print ("QUIT: closing pygame...")
-            if event.type == pg.KEYDOWN:
+            elif event.type == pg.KEYDOWN:
                 if event.key == pg.K_ESCAPE:
                     running = False
                     print ("ESCAPE: closing pygame...")
@@ -352,7 +346,7 @@ def main():
 
         # ottieni il frame
         # frame, view_matrix, retval = detect(cameraMatrix, cameraVideo, arucoDict, arucoParams)
-        frame, view_matrix, retval = detect(cameraVideo, arucoDict, arucoParams)
+        frame, view_matrix, retval, arucoIds = detect(cameraVideo, arucoDict, arucoParams)
         # frame, rotVecs, transVecs, retValue = detect(cameraMatrix, cameraVideo, arucoDict, arucoParams)
 
         # render del background
@@ -378,12 +372,17 @@ def main():
         # glPopMatrix()
 
         if retval:
+            # recupero delle info sul modello
+            print("arucoIds: " , arucoIds)
+            obj = objDict[arucoIds][0]
+            scalingScale = objDict[arucoIds][1]
             # render del modello
             glMatrixMode(GL_PROJECTION)
             glLoadIdentity()
             # vedi il link sopra
             gluPerspective(90, (displayRes[0]/displayRes[1]), 0.1, 50.0)
             print ("8. glGetFloatv GL_PROJECTION_MATRIX:" , glGetFloatv(GL_PROJECTION_MATRIX))
+
             glMatrixMode(GL_MODELVIEW)
             # !!!!!! FARE glLoadIdentity() + glMultMatrixd(a) == glLoadMatrixd(a)
             # glLoadIdentity()
@@ -392,9 +391,9 @@ def main():
             glLoadMatrixd(view_matrix)
             print ("10. glGetFloatv GL_MODELVIEW_MATRIX:" , glGetFloatv(GL_MODELVIEW_MATRIX))
             # scaling (N.B. potrebbe essere valido solo per alcuni modelli, potremmo doverlo settare diversamente per ciascuno)
-            scalingScale = 0.05
+            # scalingScale = 0.05
             glScalef(scalingScale, scalingScale, scalingScale)
-            glRotatef(90, 1, 0, 0)
+            # glRotatef(90, 1, 0, 0)                # commentanto perche carichiamo il modello con swapyz=True
             print ("11. glGetFloatv GL_MODELVIEW_MATRIX:" , glGetFloatv(GL_MODELVIEW_MATRIX))
             # print ("type: " , type(rotVecs))
             # np.append(rotVecs, 0)
@@ -411,16 +410,17 @@ def main():
             # print ("10. glGetFloatv GL_MODELVIEW_MATRIX:" , glGetFloatv(GL_MODELVIEW_MATRIX))
 
             # voglio effettuare la traslazione SOLO LA PRIMA VOLTA, non ad ogni frame
-            if firstTime:
+            # if firstTime:
                 # glTranslatef(0.0, -1, -7)                   # per la fox
                 # glTranslatef(0.0, -10, -50)               # per il tie-fighter
                 # print ("11. glGetFloatv GL_MODELVIEW_MATRIX:" , glGetFloatv(GL_MODELVIEW_MATRIX))
-                firstTime = False
+                # firstTime = False
 
             # rendering del modello
             glEnable(GL_DEPTH_TEST)
             # glEnable(GL_DEPTH_TEST | GL_NORMALIZE)
-            fox.render()
+            obj.render()
+            # fox.render()
             # necron.render()
             # tieFighter.render()
             # renderSolidCube()
