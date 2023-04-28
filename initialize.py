@@ -13,7 +13,8 @@ import sys
 from marker import Marker
 
 # import moduli PIP
-from objloader_simple import *
+# from objloader_simple import *
+from objloader import *
 
 
 def loadReferenceMarker():
@@ -53,6 +54,12 @@ def initialize():
     # e.g. key = ARmarker_01    value=OBJ("...", swapyz=True)
     # TODO: pensare ad un modo per farli associare dall'utente, per ora hardcodiamoli cosi
     objDict = {}
+    # objDict.update({"21": OBJ("models\low-poly-fox\low-poly-fox.obj")})
+    # objDict.update({"151": OBJ("models\star-wars-vader-tie-fighter-obj\star-wars-vader-tie-fighter.obj")})
+    objDict.update({21: [OBJ("models\low-poly-fox\low-poly-fox.obj", swapyz=True), 0.05]})
+    # objDict.update({151: [OBJ("models\we-bare-bears-low-poly\escandalosos.obj", swapyz=True), 0.005]})
+    objDict.update({151: [OBJ("models\star-wars-vader-tie-fighter-obj\star-wars-vader-tie-fighter.obj", swapyz=True), 0.004]})    
+
     # objDict.update({"pictures\marker\ARmarker_03.jpg": [OBJ("models\low-poly-fox\low-poly-fox.obj", swapyz=True), 100]})    
     # objDict.update({"pictures\marker\ARmarker_04.jpg": [OBJ("models\sign-post\sign-post.obj", swapyz=True), 1000]})
 
