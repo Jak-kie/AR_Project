@@ -15,6 +15,7 @@ def initialize():
     # Inizializzo il dictionary dei modelli 3D
     print ("---> Caricamento modelli in corso...")
     # Dictionary: key=id aruco marker , value=list["obj caricato", scalingScale]
+    # scalingScale necessaria avendo modelli di default molto piu grandi di altri, e non volendoli rimpicciolire a priori
     objDict = {}
     objDict.update({21: [OBJ("models\low-poly-fox\low-poly-fox.obj", swapyz=True), 0.05]})
     objDict.update({151: [OBJ("models\star-wars-vader-tie-fighter-obj\star-wars-vader-tie-fighter.obj", swapyz=True), 0.004]})    
@@ -23,6 +24,9 @@ def initialize():
     # Inizializzo la camera
     print ("---> Inizializzazione della camera...")
     cameraVideo = cv2.VideoCapture(0)
+    if not cameraVideo.isOpened(): # try to get the first frame
+        print ("!!! ERRORE DURANTE IL CARICAMENTO DELLA CAMERA, CHIUSURA !!!")
+        sys.exit()
     print ("---> Camera inizializzata!")
 
     # Inizializzo i parametri aruco

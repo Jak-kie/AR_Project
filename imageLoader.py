@@ -1,3 +1,8 @@
+"""
+DONT TOUCH THIS, IT WORKS, LET'S LEAVE IT AT THAT
+"""
+
+
 import cv2
 from PIL import Image
 

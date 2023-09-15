@@ -1,3 +1,8 @@
+"""
+DONT TOUCH THIS, IT WORKS, LET'S LEAVE IT AT THAT
+"""
+
+
 import os
 import pygame
 from OpenGL.GL import *
