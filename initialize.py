@@ -12,10 +12,18 @@ from objloader import *
 
 
 def initialize():
+    """Carica il dizionario dei modelli e i parametri Aruco
+
+    Args:
+    Returns:
+        objDict (dictionary) : dict dei modelli "key=id aruco marker , value=list["obj caricato", scalingScale]"
+        cameraVideo (cv2.VideoCapture(0)) : reference alla camera usata
+        arucoDict (cv2.aruco.Dictionary) : dizionario dei possbili marker trovabili
+        arucoParams (cv2.aruco.DetectorParameters) : parametri di arucoMarker
+    """
+
     # Inizializzo il dictionary dei modelli 3D
     print ("---> Caricamento modelli in corso...")
-    # Dictionary: key=id aruco marker , value=list["obj caricato", scalingScale]
-    # scalingScale necessaria avendo modelli di default molto piu grandi di altri, e non volendoli rimpicciolire a priori
     objDict = {}
     objDict.update({21: [OBJ("models\low-poly-fox\low-poly-fox.obj", swapyz=True), 0.05]})
     objDict.update({151: [OBJ("models\star-wars-vader-tie-fighter-obj\star-wars-vader-tie-fighter.obj", swapyz=True), 0.004]})    
@@ -38,6 +46,14 @@ def initialize():
 
 
 def loadAruco():
+    """Carica il dizionario dei modelli e i parametri Aruco
+
+    Args:
+    Returns:
+        arucoDict (cv2.aruco.Dictionary) : dizionario dei possbili marker trovabili
+        arucoParams (cv2.aruco.DetectorParameters) : parametri di arucoMarker
+    """
+
     ap = argparse.ArgumentParser()
     ap.add_argument("-t", "--type", type=str,
         default="DICT_6X6_1000",
@@ -81,5 +97,7 @@ def loadAruco():
     # print(args)
     # arucoType = ARUCO_DICT[args["type"]]
     # print(arucoType)
+    # print ("type(arucoDict)", type(arucoDict))
+    # print ("type(arucoParams)", type(arucoParams))
 
     return arucoDict, arucoParams    
