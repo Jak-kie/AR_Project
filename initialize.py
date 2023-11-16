@@ -11,10 +11,11 @@ import sys
 from objloader import *
 
 
-def initialize():
+def initialize(displayRes):
     """Carica il dizionario dei modelli e i parametri Aruco
 
     Args:
+        displayRes (int[]) : tupla contenente width e height, per settare la camera
     Returns:
         objDict (dictionary) : dict dei modelli "key=id aruco marker , value=list["obj caricato", scalingScale]"
         cameraVideo (cv2.VideoCapture(0)) : reference alla camera usata
@@ -32,6 +33,9 @@ def initialize():
     # Inizializzo la camera
     print ("---> Inizializzazione della camera...")
     cameraVideo = cv2.VideoCapture(0)
+    # setta la risoluzione della camera
+    cameraVideo.set(cv2.CAP_PROP_FRAME_WIDTH, displayRes[0])
+    cameraVideo.set(cv2.CAP_PROP_FRAME_HEIGHT, displayRes[1])
     if not cameraVideo.isOpened(): # try to get the first frame
         print ("!!! ERRORE DURANTE IL CARICAMENTO DELLA CAMERA, CHIUSURA !!!")
         sys.exit()

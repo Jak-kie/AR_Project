@@ -1,4 +1,5 @@
-# Sviluppo tramite ArucoMarkers integrato con OpenGL e PyGame
+# Sviluppo tramite ArucoMarkers integrato con OpenGL e PyGame per la creazione di finestre,
+# caricamento e rendering dei modelli
 """
 L'approccio che cerchiamo deve permettere le seguenti features:
     - caricamento modello con texture
@@ -78,8 +79,9 @@ def detect(bgrFrame, arucoDict, arucoParams):
             """
             # posizioni 2D degli angoli dei marker
             floatCorners = markerCorner.reshape((4, 2))
+
             """
-            # floatCorners = (topLeft, topRight, bottomRight, bottomLeft) = markerCorner.reshape((4, 2))
+            floatCorners = (topLeft, topRight, bottomRight, bottomLeft) = markerCorner.reshape((4, 2))
             # TEST per verificare come bene rileva il marker, disegnandoci un contorno verde attorno        
             topLeft = (int(topLeft[0]), int(topLeft[1]))
             topRight = (int(topRight[0]), int(topRight[1]))
@@ -121,12 +123,10 @@ def detect(bgrFrame, arucoDict, arucoParams):
             viewMatrix = viewMatrix * INVERSE_MATRIX
             viewMatrix = np.transpose(viewMatrix)
             print ("---> MARKER TROVATO")
-            # return bgrFrame, viewMatrix, True, arucoIds[0]
             return viewMatrix, True, arucoIds[0]
     else:
         print ("---> MARKER NON TROVATO")
         # ritornamo INVERSE_MATRIX, anche se in realta non verrà usato, giusto per tornare qualcosa
-        # return bgrFrame, INVERSE_MATRIX, False, -1
         return INVERSE_MATRIX, False, -1
 
 
@@ -246,7 +246,15 @@ def arucoMatching(image, dict, params):
     return corners, ids
 
 
-def renderFrameObject(im_loader, pgClock, width, height, displayRes, objDict, cameraVideo, arucoDict, arucoParams):
+def renderFrameObject(im_loader, pgClock, displayRes, objDict, cameraVideo, arucoDict, arucoParams):
+    """Richiamo delle altre funzioni, rendering della scena 2D e del modello 3D (se viene trovato un marker)
+
+    Args:
+        im_loader () : rendering del background
+        pgClock () : indica il rateo in ??? con cui reinderizziamo il frame nuovo
+        displayRes (int[]) : tupla contenente width e height
+    """
+
     # firstTime = True
     running = True
     while running:
@@ -265,24 +273,25 @@ def renderFrameObject(im_loader, pgClock, width, height, displayRes, objDict, ca
 
         # Lettura del frame dalla camera
         bgrFrame, isFrameTaken = readFromCamera(cameraVideo)
-        # a caso questa webcam non prende il frame. non capisco il perchè. se accade riprovare.
+        # a caso la mia webcam non prende il frame. non capisco il perchè. se accade riprovare.
         # magari spostare la webcam leggermente di angolazione. pregare
         if not isFrameTaken:
             print("Impossibile prendere il frame, arresto...")
-            sys.exit()          # TODO: valutare se va bene come implementazione, cambiare se serve       
+            sys.exit()          # TODO: valutare se va bene per la release
+        print ("dimensioni di bgrFrame: " , bgrFrame.shape)
 
-        # se ottenuto il frame, prova a spottare il marker
-        # frame, viewMatrix, isMarkerDetected, arucoIds = detect(bgrFrame, arucoDict, arucoParams)
+        # se ottengo il frame, prova a spottare il marker
         viewMatrix, isMarkerDetected, arucoIds = detect(bgrFrame, arucoDict, arucoParams)
 
-        # render del background
+        # render del background 2D
         glMatrixMode(GL_PROJECTION)         # per elementi 2D
         glLoadIdentity()
         print ("3. glGetFloatv GL_PROJECTION_MATRIX:" , glGetFloatv(GL_PROJECTION_MATRIX))
-        # definisce la 2-D orthographic projection matrix \ viewbox: (left, right, top, bottom) \ (left, right, bottom, top)
-        # no perspective
+        # definisce la 2-D ORTOGRAPHIC projection matrix(left, right, top, bottom) \ viewbox(left, right, bottom, top)
         # https://stackoverflow.com/questions/1401326/gluperspective-vs-gluortho2d
-        gluOrtho2D(0, width, height, 0)
+        gluOrtho2D(0, displayRes[0], displayRes[1], 0)
+        # gluOrtho2D(0, width, height, 0)           # OLD VERSION
+
         print ("4. glGetFloatv GL_PROJECTION_MATRIX:" , glGetFloatv(GL_PROJECTION_MATRIX))
         glMatrixMode(GL_MODELVIEW)
         # glPushMatrix()
@@ -349,14 +358,14 @@ def main():
     # Inizializzazione pygame
     pg.init()
     pgClock = pg.time.Clock()
-    width = 640
-    height = 480
-    displayRes = (width, height)
+    # formato di displayRes : displayRes = (width, height)
+    # displayRes = (640, 480)
+    displayRes = (1280, 720)
     FLAGS = DOUBLEBUF | OPENGL
     gameDisplay = pg.display.set_mode(displayRes, FLAGS)
 
     # Inizializzazione parametri + dizionario modelli
-    objDict, cameraVideo, arucoDict, arucoParams = initialize()
+    objDict, cameraVideo, arucoDict, arucoParams = initialize(displayRes)
 
     print ("Inizializzazione terminata!")
 
@@ -364,7 +373,7 @@ def main():
     print ("2. glGetFloatv GL_PROJECTION_MATRIX:" , glGetFloatv(GL_PROJECTION_MATRIX))
 
     # Giusto per avere il codice un po piu organizzato
-    renderFrameObject(im_loader, pgClock, width, height, displayRes, objDict, cameraVideo, arucoDict, arucoParams)
+    renderFrameObject(im_loader, pgClock, displayRes, objDict, cameraVideo, arucoDict, arucoParams)
 
     print ("Rendering terminato")
     print ("Chiusura di pygame...")
